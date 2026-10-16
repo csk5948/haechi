@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Needed to open the UDP socket that forwards allowed DNS queries upstream. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Needed to read the DNS servers of the current Wi-Fi / mobile network. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Keep the filter running in the background with a visible notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Android 13+: allow showing that notification. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Android 11+: lets the 기록 screen show the NAME of apps that have a launcher icon
+         (otherwise only "uid 10123"). Grants no access to the apps or their data. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Samsung Internet: to send it ACTION_UPDATE and open its "Ad blockers" settings. -->
+        <package android:name="com.sec.android.app.sbrowser" />
+        <package android:name="com.sec.android.app.sbrowser.beta" />
+        <intent>
+            <action android:name="com.samsung.android.sbrowser.contentBlocker.ACTION_SETTING" />
+        </intent>
+    </queries>
+
+    <!-- Samsung Internet content blocker interface (from Samsung's Ad Blockers guide). -->
+    <uses-permission android:name="com.samsung.android.sbrowser.permission.CONTENTBLOCKER" />
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/no_backup"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".EditActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".ListsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <!-- Share target: "광고 차단에 추가" for shared links. Only reads the shared text. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="광고 차단에 추가"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".LogActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <service
+            android:name=".BlockerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Local on-device DNS filter (ad blocking) using VpnService; only DNS queries are routed into the tunnel." />
+        </service>
+
+        <!-- Samsung Internet content blocker: interface version + the provider it reads filters from.
+             Authority must be "<package>.contentBlocker.contentProvider" (Samsung's guide). -->
+        <meta-data
+            android:name="com.samsung.android.sbrowser.contentBlocker.interfaceVersion"
+            android:value="API_1.0" />
+        <provider
+            android:name=".ContentBlockerProvider"
+            android:authorities="local.adblock.contentBlocker.contentProvider"
+            android:exported="true" />
+
+        <!-- Quick Settings tile. Only the system (BIND_QUICK_SETTINGS_TILE) can bind it. -->
+        <service
+            android:name=".QsTile"
+            android:exported="true"
+            android:icon="@drawable/ic_tile"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

@@ -1,0 +1,15 @@
+# build output
+android/build/
+android/app/build/
+android/.gradle/
+windows/bin/
+windows/obj/
+local.properties
+*.apk
+*.exe
+
+# local scratch: screenshots, pasted uploads, third-party reference code
+_emu/
+_untrusted/
+uploads/
+dist/

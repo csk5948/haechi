@@ -1,0 +1,153 @@
+# Haechi 해치 (Android)
+
+외부 라이브러리 없이 순수 Java + Android 프레임워크(android.*)만으로 만든 DNS 광고 차단기입니다.
+AndroidX·Kotlin·분석 도구 없음. 앱이 하는 네트워크 통신은 "허용된 DNS 질의를 DNS 서버로 전달"하는 것 하나뿐입니다
+(기본: Cloudflare 암호화 DNS, 설정에서 변경 가능).
+
+## 동작 방식
+
+1. Android의 VpnService API로 가상 인터페이스를 만들되, **DNS 서버 주소 `10.111.222.2` 한 개만** 그 인터페이스로 라우팅합니다
+   (`addRoute("10.111.222.2", 32)`). 0.0.0.0/0은 라우팅하지 않으므로 웹·영상 등 나머지 통신은 평소대로 Wi-Fi/모바일로 바로 나갑니다.
+2. 시스템은 DNS 서버가 `10.111.222.2`라고 알고 있으므로 DNS 질의(UDP 53)만 앱으로 들어옵니다.
+3. 질의한 도메인(또는 상위 도메인)이 차단으로 판정되면 `0.0.0.0` / `::` 응답을 앱이 직접 만들어 돌려줍니다.
+   판정 순서(각 단계마다 도메인과 상위 도메인을 모두 확인): **내 허용 목록 > 내 차단 목록 > 기본 제공 목록의 예외(@@) > 기본 제공 차단 목록 > 통과**.
+   그렇지 않으면 질의를 그대로 DNS 서버로 보내고 받은 응답을 돌려줍니다. 어디로 보낼지는 메인 화면의 **DNS 서버** 설정을 따릅니다(아래).
+4. 기록(질의 로그)은 **메모리에만** 있습니다. 파일로 저장하지 않으며 앱 프로세스가 끝나면 사라집니다.
+5. 기록 화면의 **분류** 꼬리표(광고/추적/CDN)는 함께 넣은 `assets/labels.txt`(`blocklist/labels.txt` 사본)를 따릅니다. 보기용일 뿐 차단과는 무관합니다.
+   목록에 없으면 도메인을 `.`·`-`로 나눈 단어 중 ad, ads, banner… 가 있으면 `광고?`, track, analytics, log… 가 있으면 `추적?`로 추정합니다
+   (단어 전체가 같아야 함 → download, address 는 해당 없음). 규칙은 `Labels.java` 주석 참고.
+6. **앱 이름**(Android 10+): DNS 패킷마다 `ConnectivityManager.getConnectionOwnerUid()`로 그 질의를 보낸 소켓의 소유 앱을 시스템에 물어봅니다
+   (활성 VPN 앱에만 허용되는 로컬 시스템 호출, 네트워크 통신 아님). Android가 DNS 패킷의 소유 uid를 실제 앱으로 알려 주는지에 달려 있으며,
+   **실기기에서 확인하지 못했습니다.** 시스템 리졸버가 캐시한 응답은 질의가 다시 오지 않으므로 앱도 기록되지 않고,
+   알 수 없거나 시스템 uid이면 "시스템"으로 표시됩니다. 앱 이름을 읽기 위해 매니페스트에 런처 앱 목록 조회(`<queries>`)를 선언했고,
+   런처 아이콘이 없는 앱은 "uid 10123"처럼 보일 수 있습니다.
+7. 목록 파일: 앱 전용 저장소의 `block.txt`(처음 실행 시 기본 목록 복사 – 기존 설치도 그대로 "내 차단 목록"으로 유지),
+   `allow.txt`(처음엔 비어 있음), `browser.txt`(삼성 인터넷 규칙). 모두 일반 텍스트이고 백업/기기 이전 대상에서 제외됩니다.
+
+## 기본 제공 목록 (읽기 전용, APK 안에 포함)
+
+| 목록 | 용도 | 기본 |
+|---|---|---|
+| AdGuard DNS (`assets/bundled/adguard-dns.txt`, 약 18만 5천 도메인) | DNS 차단 | 켬 |
+| List-KR DNS (`assets/bundled/list-kr-dns.txt`, 360 도메인) | DNS 차단 | 켬 |
+| YousList (`assets/bundled/youslist.txt`, Adblock Plus 규칙) | 삼성 인터넷 전용 (DNS에는 안 씀) | 켬 |
+
+- 형식: `도메인` = 차단(하위 도메인 포함), `@@도메인` = 예외, `#` = 주석. 출처 URL과 변환 날짜는 파일 첫 줄(목록 관리 › 기본 제공 목록에 표시).
+- 사용자 파일로 복사하지 않고 APK 안에서 바로 읽습니다. 켜진 DNS 목록은 필터가 켜질 때 **백그라운드에서** 하나의 표로 읽어 들이고,
+  다 읽기 전까지는 내 목록만 적용됩니다. 켜고 끌 때마다 다시 읽습니다.
+- 메모리: 18만 5천 개를 `HashSet<String>`으로 두면 약 19 MB(PC JVM 측정)라서, 정렬된 하나의 `byte[]` + 오프셋 배열로 두고 이진 탐색합니다(약 5 MB). `Bundled.java` 참고.
+- 기본 제공 DNS 목록은 삼성 인터넷으로 넘기지 않습니다(DNS가 이미 시스템 전체에서 막음).
+
+## 목록 관리 화면
+
+메인 화면 **목록 관리** → 위에 **도메인 확인**(입력하면 "차단 · AdGuard DNS (doubleclick.net 규칙)"처럼 판정과 출처 표시),
+탭: 차단 목록 · 허용 목록 · 브라우저 규칙 · 기본 제공 목록.
+
+- 검색(바로 걸러짐), 개수 표시, 항목을 누르면 수정/삭제/복사, 길게 누르면 여러 개 선택 후 삭제.
+- **+ 추가**: 여러 줄 붙여넣기 가능. 주소를 붙여넣으면 호스트만 씁니다(`https://ad.example.com/x.jpg` → `ad.example.com`).
+  차단 목록에 하나만 추가할 때는 범위(도메인/상위 도메인)를 고릅니다.
+- **클립보드 주소로 차단**, 그리고 다른 앱의 **공유 → "광고 차단에 추가"**: 주소에서 호스트를 뽑아 범위를 고른 뒤 차단 목록에 추가.
+- **⋯** 메뉴: 원본 텍스트로 편집, 기본 목록으로 되돌리기(차단 목록).
+- 파일은 그대로 텍스트이며, 편집은 해당 줄만 바꾸고 주석과 다른 줄은 남깁니다. 모든 변경은 즉시 필터에 반영되고 삼성 인터넷에 업데이트를 알립니다.
+- 기본 제공 목록 탭: 목록별 스위치와 출처/날짜, 켜진 DNS 목록 검색(파일을 순서대로 읽어 처음 200개 표시), 결과를 눌러 "허용하기".
+
+## DNS 서버 설정 (암호화 DNS)
+
+| 선택 | 동작 |
+|---|---|
+| **Cloudflare 암호화 (1.1.1.1)** – 기본값 | DNS-over-HTTPS(RFC 8484) POST → `https://1.1.1.1/dns-query` |
+| Google 암호화 (8.8.8.8) | DNS-over-HTTPS → `https://8.8.8.8/dns-query` |
+| 통신사 DNS (암호화 안 함) | 현재 Wi-Fi/모바일 네트워크의 DNS 서버(없으면 1.1.1.1)로 평문 UDP 53 |
+
+- 설정은 앱 내부 SharedPreferences에 저장되고, VPN을 다시 켜지 않아도 다음 질의부터 바로 적용됩니다.
+- 주소가 숫자 IP라서 DoH 서버를 찾기 위한 DNS 조회가 없고(두 인증서 모두 IP를 포함), 연결은 VPN이 아닌 실제 네트워크에 묶어서
+  (`Network.openConnection`) 엽니다. 질의 ID는 0으로 보내고(RFC 8484 권장) 응답에서 원래 ID로 되돌립니다. 연결/읽기 타임아웃 4초, 연결은 재사용(keep-alive).
+- 암호화 DNS가 실패하면(네트워크/HTTP 오류) 그 질의만 통신사 DNS로 보내서 인터넷은 계속 되게 하고, 메인 화면에
+  "암호화 DNS 실패 → 통신사 DNS 사용 N회"를 표시합니다. 이때 그 질의는 통신사가 볼 수 있고 조작될 수도 있습니다.
+- **개인정보 트레이드오프**: 암호화 DNS를 쓰면 통신사가 DNS 응답을 조작하거나(warning.or.kr로 돌리기) 엿볼 수 없습니다.
+  대신 어떤 도메인에 접속하는지는 선택한 회사(Cloudflare 또는 Google)가 보게 됩니다.
+- **한계**: warning.or.kr 차단 중 **SNI 필터링**(접속 시 TLS의 서버 이름을 보고 연결을 끊는 방식 – 경고 페이지 대신 "연결이 재설정됨")은
+  DNS와 무관하므로 이 설정으로 해결되지 않습니다. 해결되는 것은 DNS 응답을 바꿔치기하는 방식뿐입니다.
+
+## SNI 쪼개기 (브라우저용 로컬 프록시, 선택)
+
+SNI 필터링(TLS 첫 패킷의 사이트 이름을 보고 연결을 끊는 방식)을 피하기 위한 기능입니다. 메인 화면 스위치, **기본 꺼짐**, Android 10+.
+
+- 켜고 VPN을 시작하면 `VpnService.Builder.setHttpProxy(127.0.0.1:임의포트)`로 시스템 HTTP 프록시를 지정합니다. 프록시 설정을 따르는 앱
+  (크롬, 삼성 인터넷 등)의 HTTP/HTTPS가 앱 안의 `SplitProxy.java`로 들어옵니다. 스위치는 VPN을 껐다 켜야 적용됩니다.
+- HTTPS(`CONNECT`): 사이트에 연결한 뒤 200을 주고, 브라우저가 보내는 첫 TLS 레코드(ClientHello)를 **사이트 이름 한가운데에서 둘로 나눠
+  별개의 TCP 세그먼트 두 개로** 보냅니다(`TCP_NODELAY`). 첫 세그먼트만 보는 필터는 이름 전체를 못 봅니다. 이후는 그대로 전달만 하고,
+  암호를 풀지 않으며 인증서도 필요 없습니다. TLS가 아니면 손대지 않습니다. 일반 HTTP는 요청줄만 고쳐 전달합니다.
+- 사이트 이름은 시스템 리졸버(= 이 앱의 DNS 필터)로 찾으므로 차단 목록의 도메인(0.0.0.0 응답)은 중계기에서도 403으로 거절합니다.
+  DNS 설정(암호화 DNS)도 그대로 적용됩니다.
+- 한계: 프록시를 무시하는 앱은 거치지 않습니다. 필터가 TCP 재조립까지 하는 장비면 효과가 없습니다. QUIC(HTTP/3, UDP)은 프록시를 못 지나므로
+  브라우저가 HTTPS(TCP)로 접속할 때만 해당합니다. **실기기에서 확인하지 못했습니다.**
+- 네트워크 코드는 `SplitProxy.java`에 있고, 외부로 나가는 연결은 브라우저가 요청한 사이트로의 연결뿐입니다.
+
+## 삼성 인터넷 광고 차단기 (요소 숨김 규칙)
+
+인증서(CA)나 다른 앱 없이, 이 앱이 삼성 인터넷의 "광고 차단기"로도 동작합니다
+([Samsung Ad Blockers 가이드](https://developer.samsung.com/internet/android/adblockers-guide.html)).
+
+- **목록 관리 › 브라우저 규칙** → `browser.txt` 편집 (Adblock Plus 형식).
+  `도메인##CSS선택자` = 그 사이트에서 요소 숨김, `||도메인^` = 요청 차단, `@@||도메인^` = 예외, `!` = 주석.
+  처음엔 시험용 `example.com##h1`과 주석 처리된 `namu.wiki##.powerlink` 예시(실제 클래스 이름 모름 – 나무위키는 클래스 이름을 난독화)가 들어 있습니다.
+- 삼성 인터넷에 넘기는 내용 = `[Adblock Plus 2.0]` + `browser.txt` + YousList(켜져 있으면) + 내 차단 목록을 `||도메인^`으로 바꾼 것
+  (허용 목록에 걸리는 도메인은 제외) + 허용 목록을 `@@||도메인^` 예외로. 기본 제공 DNS 목록은 넣지 않습니다.
+- 전달 방식: `ContentBlockerProvider.java`(authority `local.adblock.contentBlocker.contentProvider`)의 `openFile()`이 이 목록을 읽기 전용 파일로 돌려줍니다.
+  삼성 인터넷 패키지(`com.sec.android.app.sbrowser*`)만 읽을 수 있습니다. 앱 사이 전달일 뿐 네트워크 통신은 없습니다.
+- 목록을 저장할 때마다 `com.samsung.android.sbrowser.contentBlocker.ACTION_UPDATE` 브로드캐스트로 삼성 인터넷에 새로 읽으라고 알립니다.
+
+**연동 방법** (스토어 등록 안 된 앱이라 개발자 모드가 필요):
+1. 삼성 인터넷 주소창에 `internet://contentblock` 입력 → 개발자 모드 켜기
+2. 삼성 인터넷 설정 › 광고 차단기 에서 '광고 차단' 켜기
+3. example.com 에서 제목이 사라지면 요소 숨김이 동작하는 것
+
+주의: 삼성 가이드는 Adblock Plus 형식이라고만 하고, `##` 요소 숨김을 지원하는지는 **문서에 없습니다**. 실기기에서 확인하지 못했습니다.
+
+## 권한과 이유
+
+| 권한 | 이유 |
+|---|---|
+| `INTERNET` | 허용된 DNS 질의를 DNS 서버로 전달 (암호화 DNS의 HTTPS 연결, 또는 통신사 DNS로 가는 UDP 소켓) |
+| `ACCESS_NETWORK_STATE` | 현재 Wi-Fi/모바일 네트워크의 DNS 서버 주소 읽기, 네트워크 변경 감지 |
+| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE` | 화면을 꺼도 필터가 계속 동작하도록 알림과 함께 실행 (Android 14+는 유형 명시 필요) |
+| `POST_NOTIFICATIONS` | Android 13+에서 "광고 차단 중 · N개 차단" 알림 표시 |
+| `BIND_VPN_SERVICE` (서비스 보호용) | 시스템만 VPN 서비스에 연결할 수 있게 함. 앱이 요청하는 권한이 아님 |
+| `BIND_QUICK_SETTINGS_TILE` (서비스 보호용) | 시스템만 빠른 설정 타일에 연결할 수 있게 함 |
+| `com.samsung.android.sbrowser.permission.CONTENTBLOCKER` | 삼성 가이드가 요구하는 광고 차단기 표시용 권한 |
+| `<queries>` (삼성 인터넷, 런처 앱) | 삼성 인터넷에 업데이트 알림/설정 열기, 기록 화면에 앱 이름 표시. 다른 앱의 데이터 접근 권한은 아님 |
+
+## 네트워크 호출 위치
+
+모든 통신은 `forward()` 한 곳에서 시작합니다 (`app/src/main/java/local/adblock/BlockerService.java:253`).
+
+- 암호화 DNS: `BlockerService.java:261` → `Doh.java:29` `exchange()` – HTTPS POST. `Doh.java:45` 요청 본문 전송, `Doh.java:54` 응답 수신
+- 통신사 DNS(선택했거나 암호화 DNS 실패 시): `BlockerService.java:271` UDP send, `:274` receive (UDP 53, 3초 타임아웃, `protect()` 적용)
+- `BlockerService.java:336` `refreshUpstream()` – 통신 없음. 시스템에 DNS 서버 주소와 실제 네트워크만 물어봄. 1.1.1.1은 숫자 IP라 조회도 하지 않음
+- `BlockerService.java:289` `attribute()` – 통신 없음. 시스템에 "이 소켓의 앱이 누구인가"만 물어봄
+
+그 외 파일(`Dns.java`, `Lists.java`, `Bundled.java`, `Domains.java`, `Labels.java`, `QueryLog.java`, `Settings.java`,
+`SamsungBlocker.java`, `ContentBlockerProvider.java`, 화면들)에는 네트워크 코드가 없습니다. 기본 제공 목록은 APK에 들어 있고 내려받지 않습니다.
+
+## 사용
+
+- 앱에서 **켜기** → VPN 연결 허용.
+- **빠른 설정 타일**: 상단 알림창을 내려 빠른 설정 패널 편집(연필 아이콘) → '광고 차단'을 끌어다 놓기. 탭하면 켜기/끄기.
+- **기록**: "● 새로 녹화" 후 앱을 쓰고 "■ 정지"하면 그 사이 접속한 도메인을 볼 수 있음. 도메인을 누르면 차단/허용/취소.
+- 개인 DNS(설정 > 네트워크)는 **끄기** 또는 **자동**이어야 합니다. 호스트 이름을 지정하면 DNS가 앱을 거치지 않습니다.
+  (DNS 암호화가 목적이라면 개인 DNS 대신 이 앱의 "DNS 서버" 설정을 쓰세요.)
+- 부팅 시 자동 시작: 설정 > 네트워크 > VPN > 이 앱 > '상시 사용 VPN'.
+- 한계: 광고가 본문과 같은 도메인에서 오면(예: YouTube) DNS로는 막을 수 없습니다. 열쇠 아이콘은 VPN API를 쓰기 때문에 표시됩니다.
+
+## 빌드
+
+JDK 17, Android SDK(platform 35) 필요. `local.properties`에 `sdk.dir` 지정.
+
+```
+cd haechi\android
+set JAVA_HOME=C:\Program Files\Java\jdk-17
+gradlew.bat assembleDebug
+```
+
+결과: `app\build\outputs\apk\debug\app-debug.apk`. 빌드 도구(Android Gradle Plugin)만 받으며 APK에는 이 저장소의 코드만 들어갑니다.

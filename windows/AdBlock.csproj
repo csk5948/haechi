@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>AdBlock</AssemblyName>
+    <RootNamespace>AdBlock</RootNamespace>
+    <Version>1.0.0</Version>
+    <!-- 배포: 단일 exe (.NET 9 데스크톱 런타임 필요) -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\blocklist\default.txt" LogicalName="default.txt" />
+    <EmbeddedResource Include="..\blocklist\labels.txt" LogicalName="labels.txt" />
+    <EmbeddedResource Include="..\blocklist\bundled\adguard-dns.txt" LogicalName="bundled/adguard-dns.txt" />
+    <EmbeddedResource Include="..\blocklist\bundled\list-kr-dns.txt" LogicalName="bundled/list-kr-dns.txt" />
+  </ItemGroup>
+
+</Project>
