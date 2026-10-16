@@ -1,4 +1,4 @@
-namespace AdBlock;
+namespace Haechi;
 
 /// <summary>DNS 패킷에서 필요한 만큼만 읽고, 차단 응답을 만든다 (RFC 1035).</summary>
 static class DnsMessage

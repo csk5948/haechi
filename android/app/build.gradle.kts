@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace = "local.adblock"
+    namespace = "local.haechi"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "local.adblock"
+        applicationId = "local.haechi"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

@@ -1,4 +1,4 @@
-package local.adblock;
+package local.haechi;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -53,10 +53,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * The only network traffic this app makes is that forwarding, in {@link #forward}.
  */
 public class BlockerService extends VpnService {
-    static final String ACTION_START = "local.adblock.START";
-    static final String ACTION_STOP = "local.adblock.STOP";
+    static final String ACTION_START = "local.haechi.START";
+    static final String ACTION_STOP = "local.haechi.STOP";
 
-    private static final String TAG = "adblock";
+    private static final String TAG = "haechi";
     private static final String TUN_ADDRESS = "10.111.222.1";
     private static final String FAKE_DNS = "10.111.222.2";
     private static final String FALLBACK_DNS = "1.1.1.1";

@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "adblock"
+rootProject.name = "haechi"
 include(":app")

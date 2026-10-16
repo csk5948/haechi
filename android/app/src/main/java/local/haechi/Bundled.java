@@ -1,4 +1,4 @@
-package local.adblock;
+package local.haechi;
 
 import android.content.Context;
 import android.content.SharedPreferences;

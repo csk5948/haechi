@@ -1,4 +1,4 @@
-package local.adblock;
+package local.haechi;
 
 /**
  * IPv4 / UDP / DNS byte-level helpers. Pure functions on byte arrays: no I/O, no state.

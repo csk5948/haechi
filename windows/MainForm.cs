@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using Microsoft.Win32;
 
-namespace AdBlock;
+namespace Haechi;
 
 sealed class MainForm : Form
 {
-    const string TaskName = "AdBlockLocalDns";
+    const string TaskName = "HaechiLocalDns";
     static string SettingsPath => Path.Combine(DnsFilter.Dir, "enabled.txt");
 
     readonly DnsFilter _filter = new();

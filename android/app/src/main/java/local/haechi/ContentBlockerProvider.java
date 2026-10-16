@@ -1,4 +1,4 @@
-package local.adblock;
+package local.haechi;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -16,7 +16,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Hands our Adblock Plus format filter list to Samsung Internet.
  *
- * Authority "local.adblock.contentBlocker.contentProvider" (required format from Samsung's guide).
+ * Authority "local.haechi.contentBlocker.contentProvider" (required format from Samsung's guide).
  * The guide does not say which method the browser calls; the open-source Samsung content
  * blockers (Adblock Plus for Samsung Internet, AdGuard Content Blocker) both serve the list from
  * openFile() as a read-only file, and return null from call() ("no encryption"). Same here.

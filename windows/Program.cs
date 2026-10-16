@@ -1,11 +1,11 @@
-namespace AdBlock;
+namespace Haechi;
 
 static class Program
 {
     [STAThread]
     static void Main(string[] args)
     {
-        using var mutex = new Mutex(true, @"Local\AdBlock.LocalDns", out bool first);
+        using var mutex = new Mutex(true, @"Local\Haechi.LocalDns", out bool first);
         if (!first)
         {
             MessageBox.Show("Haechi가 이미 실행 중이에요. 작업 표시줄 오른쪽 트레이 아이콘을 확인하세요.", "Haechi");

@@ -96,7 +96,7 @@
             android:value="API_1.0" />
         <provider
             android:name=".ContentBlockerProvider"
-            android:authorities="local.adblock.contentBlocker.contentProvider"
+            android:authorities="local.haechi.contentBlocker.contentProvider"
             android:exported="true" />
 
         <!-- Quick Settings tile. Only the system (BIND_QUICK_SETTINGS_TILE) can bind it. -->

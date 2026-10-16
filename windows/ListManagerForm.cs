@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace AdBlock;
+namespace Haechi;
 
 /// <summary>차단·허용 목록을 검색하고 고치는 창. 파일은 그대로 텍스트로 남는다.</summary>
 sealed class ListManagerForm : Form

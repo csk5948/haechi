@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Win32;
 
-namespace AdBlock;
+namespace Haechi;
 
 /// <summary>바꾸기 전 어댑터 DNS 설정. 비어 있으면(null) 원래 자동(DHCP)이었다는 뜻.</summary>
 record AdapterState(string Id, int Index, string Name, string? V4Static, string? V6Static, bool V6Changed);

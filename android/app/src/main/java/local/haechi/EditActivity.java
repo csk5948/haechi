@@ -1,4 +1,4 @@
-package local.adblock;
+package local.haechi;
 
 import android.app.Activity;
 import android.graphics.Typeface;

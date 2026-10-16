@@ -1,4 +1,4 @@
-package local.adblock;
+package local.haechi;
 
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;

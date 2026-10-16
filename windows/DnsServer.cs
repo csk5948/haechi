@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 
-namespace AdBlock;
+namespace Haechi;
 
 sealed class LogEntry
 {

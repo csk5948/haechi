@@ -1,4 +1,4 @@
-package local.adblock;
+package local.haechi;
 
 import android.content.Context;
 
@@ -119,7 +119,7 @@ final class Lists {
 
     /**
      * One domain per line. Also accepts hosts format ("0.0.0.0 ads.com") and the
-     * adblock style "||ads.com^". Lines starting with '#' or '!' are comments.
+     * filter-list style "||ads.com^". Lines starting with '#' or '!' are comments.
      */
     static Set<String> parse(String text) {
         Set<String> out = new HashSet<>();

@@ -1,4 +1,4 @@
-namespace AdBlock;
+namespace Haechi;
 
 /// <summary>판정 결과와, 어느 목록의 어느 규칙 때문인지.</summary>
 record Match(Verdict Verdict, string Source, string Rule);
@@ -19,7 +19,7 @@ sealed class BundledList
 sealed class DnsFilter
 {
     public static readonly string Dir =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AdBlock");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Haechi");
     public static string BlockPath => Path.Combine(Dir, "block.txt");
     public static string AllowPath => Path.Combine(Dir, "allow.txt");
     static string TogglesPath => Path.Combine(Dir, "lists.txt");

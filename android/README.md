@@ -94,7 +94,7 @@ SNI 필터링(TLS 첫 패킷의 사이트 이름을 보고 연결을 끊는 방�
   처음엔 시험용 `example.com##h1`과 주석 처리된 `namu.wiki##.powerlink` 예시(실제 클래스 이름 모름 – 나무위키는 클래스 이름을 난독화)가 들어 있습니다.
 - 삼성 인터넷에 넘기는 내용 = `[Adblock Plus 2.0]` + `browser.txt` + YousList(켜져 있으면) + 내 차단 목록을 `||도메인^`으로 바꾼 것
   (허용 목록에 걸리는 도메인은 제외) + 허용 목록을 `@@||도메인^` 예외로. 기본 제공 DNS 목록은 넣지 않습니다.
-- 전달 방식: `ContentBlockerProvider.java`(authority `local.adblock.contentBlocker.contentProvider`)의 `openFile()`이 이 목록을 읽기 전용 파일로 돌려줍니다.
+- 전달 방식: `ContentBlockerProvider.java`(authority `local.haechi.contentBlocker.contentProvider`)의 `openFile()`이 이 목록을 읽기 전용 파일로 돌려줍니다.
   삼성 인터넷 패키지(`com.sec.android.app.sbrowser*`)만 읽을 수 있습니다. 앱 사이 전달일 뿐 네트워크 통신은 없습니다.
 - 목록을 저장할 때마다 `com.samsung.android.sbrowser.contentBlocker.ACTION_UPDATE` 브로드캐스트로 삼성 인터넷에 새로 읽으라고 알립니다.
 
@@ -120,7 +120,7 @@ SNI 필터링(TLS 첫 패킷의 사이트 이름을 보고 연결을 끊는 방�
 
 ## 네트워크 호출 위치
 
-모든 통신은 `forward()` 한 곳에서 시작합니다 (`app/src/main/java/local/adblock/BlockerService.java:253`).
+모든 통신은 `forward()` 한 곳에서 시작합니다 (`app/src/main/java/local/haechi/BlockerService.java:253`).
 
 - 암호화 DNS: `BlockerService.java:261` → `Doh.java:29` `exchange()` – HTTPS POST. `Doh.java:45` 요청 본문 전송, `Doh.java:54` 응답 수신
 - 통신사 DNS(선택했거나 암호화 DNS 실패 시): `BlockerService.java:271` UDP send, `:274` receive (UDP 53, 3초 타임아웃, `protect()` 적용)

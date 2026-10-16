@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AssemblyName>AdBlock</AssemblyName>
-    <RootNamespace>AdBlock</RootNamespace>
+    <AssemblyName>Haechi</AssemblyName>
+    <RootNamespace>Haechi</RootNamespace>
     <Version>1.0.0</Version>
     <!-- 배포: 단일 exe (.NET 9 데스크톱 런타임 필요) -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

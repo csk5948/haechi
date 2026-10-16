@@ -1,4 +1,4 @@
-namespace AdBlock;
+namespace Haechi;
 
 /// <summary>
 /// 기록 화면용 분류 꼬리표 (차단 여부와는 무관).
