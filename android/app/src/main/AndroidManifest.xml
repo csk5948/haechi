@@ -71,6 +71,26 @@
             </intent-filter>
         </activity>
 
+        <!-- In-app browser to tap an ad and turn it into a Samsung Internet hiding rule.
+             Also a share target, so a page open in Samsung Internet can be shared here. -->
+        <activity
+            android:name=".PickerActivity"
+            android:exported="true"
+            android:label="광고 요소 숨기기"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:windowSoftInputMode="adjustResize|stateHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".GuideActivity"
+            android:exported="false" />
+
         <activity
             android:name=".LogActivity"
             android:exported="false"

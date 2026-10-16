@@ -55,26 +55,14 @@ public class MainActivity extends Activity {
                 startActivity(new Intent(this, LogActivity.class))));
         col.addView(Ui.button(this, "목록 관리 (차단 · 허용 · 브라우저 규칙 · 기본 제공 목록)", v ->
                 startActivity(new Intent(this, ListsActivity.class))));
+        col.addView(Ui.button(this, "광고 요소 골라 숨기기 (앱 안 브라우저 → 삼성 인터넷 규칙)", v ->
+                startActivity(new Intent(this, PickerActivity.class))));
         col.addView(Ui.text(this, "삼성 인터넷 연동 방법\n"
                 + "1) 삼성 인터넷 주소창에 internet://contentblock 입력 → 개발자 모드 켜기\n"
                 + "2) 삼성 인터넷 설정 › 광고 차단기 에서 '광고 차단' 켜기\n"
                 + "3) example.com 에서 제목이 사라지면 요소 숨김 동작", 13));
         col.addView(Ui.button(this, "삼성 인터넷 광고 차단기 설정 열기", v -> openSamsungSettings()));
-        col.addView(Ui.text(this, "삼성 인터넷에 보낼 규칙 (안 될 때 1번부터 차례로 시험 → 삼성 인터넷에서 새로고침)", 13));
-        RadioGroup level = new RadioGroup(this);
-        String curLevel = SamsungBlocker.testLevel(this);
-        for (String[] o : SamsungBlocker.TEST_LEVELS) {
-            RadioButton r = new RadioButton(this);
-            r.setText(o[1]);
-            r.setId(View.generateViewId());
-            r.setOnClickListener(v -> SamsungBlocker.setTestLevel(this, o[0]));
-            level.addView(r);
-            if (o[0].equals(curLevel)) level.check(r.getId());
-        }
-        col.addView(level);
-        col.addView(Ui.text(this, "삼성 인터넷 연동 상태 (길게 누르면 복사)", 13));
         samsungDiag = Ui.text(this, "", 12);
-        samsungDiag.setTextIsSelectable(true);
         col.addView(samsungDiag);
 
         // ---- DNS server setting (applies to the running filter immediately) ----
@@ -194,7 +182,7 @@ public class MainActivity extends Activity {
                         + BlockerService.lastDohError : ""));
         dohFail.setTextIsSelectable(true);
         dohFail.setVisibility(fails > 0 || !st.isEmpty() ? View.VISIBLE : View.GONE);
-        String diag = ContentBlockerProvider.diagnostics(this);
+        String diag = ContentBlockerProvider.lastRead(this);
         if (!diag.contentEquals(samsungDiag.getText())) samsungDiag.setText(diag);
     }
 

@@ -56,7 +56,7 @@ public class ListsActivity extends Activity {
 
     // editable-list pane
     private LinearLayout editPane;
-    private Button clipboardButton;
+    private Button clipboardButton, pickButton, guideButton;
     private EditText search;
     private TextView count;
     private ListView list;
@@ -130,6 +130,8 @@ public class ListsActivity extends Activity {
         editPane.setVisibility(bundled ? View.GONE : View.VISIBLE);
         bundledPane.setVisibility(bundled ? View.VISIBLE : View.GONE);
         clipboardButton.setVisibility(t == TAB_BLOCK ? View.VISIBLE : View.GONE);
+        pickButton.setVisibility(t == TAB_BROWSER ? View.VISIBLE : View.GONE);
+        guideButton.setVisibility(t == TAB_BROWSER ? View.VISIBLE : View.GONE);
         if (!bundled) {
             search.setText("");
             reloadEntries();
@@ -170,6 +172,10 @@ public class ListsActivity extends Activity {
         bar.addView(Ui.button(this, "+ 추가", v -> showAdd()), Ui.weight1());
         clipboardButton = Ui.button(this, "클립보드 주소로 차단", v -> blockFromClipboard());
         bar.addView(clipboardButton, Ui.weight1());
+        pickButton = Ui.button(this, "페이지에서 고르기", v -> startActivity(new Intent(this, PickerActivity.class)));
+        bar.addView(pickButton, Ui.weight1());
+        guideButton = Ui.button(this, "?", v -> startActivity(new Intent(this, GuideActivity.class)));
+        bar.addView(guideButton);
         Button more = Ui.button(this, "⋯", null);
         more.setOnClickListener(v -> showMore(more));
         bar.addView(more);
@@ -326,8 +332,11 @@ public class ListsActivity extends Activity {
         PopupMenu m = new PopupMenu(this, anchor);
         m.getMenu().add(0, 1, 0, "원본 텍스트로 편집");
         if (tab == TAB_BLOCK) m.getMenu().add(0, 2, 0, "기본 목록으로 되돌리기");
+        if (tab == TAB_BROWSER) m.getMenu().add(0, 3, 0, "와일드카드(*)로 찾은 도메인");
         m.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 1) {
+            if (item.getItemId() == 3) {
+                showWildcardSeen();
+            } else if (item.getItemId() == 1) {
                 startActivity(new Intent(this, EditActivity.class).putExtra(EditActivity.EXTRA_FILE, file()));
             } else {
                 confirm("차단 목록을 기본 목록으로 되돌릴까요? 직접 추가한 항목은 사라집니다. (허용 목록은 그대로)",
@@ -336,6 +345,23 @@ public class ListsActivity extends Activity {
             return true;
         });
         m.show();
+    }
+
+    /** Domains that matched an "aa*.com##..." rule so far (they are what Samsung Internet gets for the '*'). */
+    private void showWildcardSeen() {
+        List<String> seen = Wildcards.all(this);
+        AlertDialog.Builder b = new AlertDialog.Builder(this)
+                .setTitle("와일드카드로 찾은 도메인 " + seen.size() + "개")
+                .setNegativeButton("닫기", null);
+        if (seen.isEmpty()) {
+            b.setMessage("아직 없습니다. 브라우저 규칙에 aa*.com##선택자 처럼 * 를 넣으면, "
+                    + "필터가 켜진 동안 맞는 도메인에 접속할 때 여기에 쌓이고 그 규칙에 더해집니다.");
+        } else {
+            b.setItems(seen.toArray(new String[0]), null)
+                    .setNeutralButton("모두 지우기", (d, w) -> confirm("찾은 도메인을 모두 지울까요? 다시 접속하면 다시 쌓입니다.",
+                            () -> { Wildcards.clear(this); toast("지웠습니다"); }));
+        }
+        b.show();
     }
 
     // ---------------------------------------------------------------- bundled lists

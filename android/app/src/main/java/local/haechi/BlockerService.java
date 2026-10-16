@@ -264,6 +264,7 @@ public class BlockerService extends VpnService {
         queries.incrementAndGet();
         if (q.name != null) {
             QueryLog.record(q.name);
+            Wildcards.seen(this, q.name);   // a new mirror of an "aa*.com##..." browser rule?
             if (Lists.isBlocked(q.name)) {
                 blocked.incrementAndGet();
                 byte[] answer = Dns.blockedAnswer(q);

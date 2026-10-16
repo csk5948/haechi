@@ -34,11 +34,10 @@ public class ContentBlockerProvider extends ContentProvider {
     /**
      * No caller check: "Samsung Internet couldn't use the ad blocker" appeared with one, so the browser
      * may read through a package we didn't expect. The list only holds blocking rules (no personal data);
-     * every access is recorded and shown on the main screen instead.
+     * the last read is shown on the main screen instead.
      */
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        String caller = getCallingPackage();
         try {
             File f = new File(getContext().getCacheDir(), "samsung_filters.txt");
             String filters = SamsungBlocker.buildFilters(getContext());
@@ -51,10 +50,10 @@ public class ContentBlockerProvider extends ContentProvider {
                 if (!tmp.renameTo(f)) throw new IOException("rename failed");
             }
             int rules = filters.split("\n").length;
-            record("openFile", caller, "시험 " + SamsungBlocker.testLevel(getContext()) + " · 규칙 " + rules + "줄 · " + data.length / 1024 + "KB 보냄");
+            record("규칙 " + rules + "줄 · " + data.length / 1024 + "KB");
             return ParcelFileDescriptor.open(f, ParcelFileDescriptor.MODE_READ_ONLY);
         } catch (Exception e) {
-            record("openFile", caller, "오류: " + e);
+            record("오류: " + e);
             throw new FileNotFoundException(e.getMessage());
         }
     }
@@ -62,26 +61,18 @@ public class ContentBlockerProvider extends ContentProvider {
     /** As in the Adblock Plus implementation: null = "we do not use encryption". */
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
-        record("call", getCallingPackage(), "method=" + method + " arg=" + arg + " extras=" + (extras == null ? null : extras.keySet()));
         return null;
     }
 
-    /** Last few accesses, for the 연동 상태 text on the main screen. */
-    private void record(String what, String caller, String detail) {
-        String line = new java.text.SimpleDateFormat("MM-dd HH:mm:ss", java.util.Locale.KOREA).format(new java.util.Date())
-                + " " + what + " ← " + caller + "\n  " + detail;
-        android.content.SharedPreferences p = getContext().getSharedPreferences("samsung_diag", 0);
-        String old = p.getString("log", "");
-        String joined = line + (old.isEmpty() ? "" : "\n" + old);
-        String[] parts = joined.split("\n");
-        StringBuilder keep = new StringBuilder();
-        for (int i = 0; i < Math.min(parts.length, 12); i++) keep.append(i > 0 ? "\n" : "").append(parts[i]);
-        p.edit().putString("log", keep.toString()).apply();
+    /** When Samsung Internet last read the list, for the main screen. */
+    private void record(String detail) {
+        String when = new java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.KOREA).format(new java.util.Date());
+        getContext().getSharedPreferences("samsung_diag", 0).edit().putString("last", when + " · " + detail).apply();
     }
 
-    static String diagnostics(android.content.Context c) {
-        String log = c.getSharedPreferences("samsung_diag", 0).getString("log", "");
-        return log.isEmpty() ? "아직 삼성 인터넷이 규칙을 요청한 적 없음" : log;
+    static String lastRead(android.content.Context c) {
+        String last = c.getSharedPreferences("samsung_diag", 0).getString("last", "");
+        return last.isEmpty() ? "삼성 인터넷이 아직 규칙을 읽어 간 적 없음" : "삼성 인터넷이 마지막으로 읽어 감: " + last;
     }
 
     @Override public String getType(Uri uri) { return "text/plain"; }

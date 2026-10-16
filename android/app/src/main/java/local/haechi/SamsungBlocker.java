@@ -39,44 +39,18 @@ final class SamsungBlocker {
      * What Samsung Internet gets: browser.txt as written, YousList (if on), the user's block list
      * as "||domain^" (skipping allow-listed ones) and the allow list as "@@||domain^" exceptions.
      */
-    /**
-     * Test levels for finding what Samsung Internet rejects (it read our full list, then said "사용할 수 없음").
-     * Comments are never sent, so non-ASCII notes can't be the cause.
-     */
-    static final String[][] TEST_LEVELS = {
-            {"minimal", "1. 최소: example.com##h1 한 줄"},
-            {"has", "2. 최소 + 나무위키 :has 규칙"},
-            {"mine", "3. 내 규칙 전부 (브라우저 규칙·차단·허용)"},
-            {"full", "4. 전체 (+ YousList)"},
-    };
-
-    static String testLevel(Context c) {
-        return c.getSharedPreferences("samsung_diag", 0).getString("level", "full");
-    }
-
-    static void setTestLevel(Context c, String level) {
-        c.getSharedPreferences("samsung_diag", 0).edit().putString("level", level).apply();
-        notifyUpdate(c);
-    }
-
     static String buildFilters(Context c) throws IOException {
-        String level = testLevel(c);
         StringBuilder out = new StringBuilder("[Adblock Plus 2.0]\n");
         if (!BlockerService.running) return out.toString();   // switched off: Samsung Internet gets no rules either
-        if (level.equals("minimal") || level.equals("has")) {
-            out.append("example.com##h1\n");
-            if (level.equals("has"))
-                out.append("namu.wiki##div:has(> div > div > div > div > div > div > table > tbody > tr > td[colspan=\"2\"] > div > a[href] > table)\n");
-            return out.toString();
-        }
         Lists.load(c);   // the provider may run before any screen or the VPN service
         for (String line : Lists.read(c, Lists.BROWSER).split("\n")) {
             String t = line.trim();
             if (t.isEmpty() || t.startsWith("!")) continue;
             if (t.startsWith("#") && !t.startsWith("##") && !t.startsWith("#?#")) continue;   // '#' notes are not ABP
-            out.append(t).append('\n');
+            t = Wildcards.expandLine(c, t);   // "aa*.com##x" -> "aa1.com,aa2.com##x" (null: none seen yet)
+            if (t != null) out.append(t).append('\n');
         }
-        if (level.equals("full") && Bundled.isOn(c, Bundled.YOUSLIST)) {
+        if (Bundled.isOn(c, Bundled.YOUSLIST)) {
             try (java.io.BufferedReader r = Bundled.open(c, Bundled.YOUSLIST)) {
                 String line;
                 while ((line = r.readLine()) != null) {

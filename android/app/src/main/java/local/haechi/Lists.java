@@ -44,6 +44,7 @@ final class Lists {
         if (!w.exists()) writeFile(w, readAsset(c, BROWSER_ASSET));
         block = parse(readFile(b));
         allow = parse(readFile(a));
+        Wildcards.update(c, readFile(w));   // "aa*.com##sel" sites to watch for in DNS queries
     }
 
     /** Overwrites block.txt with the bundled default list. allow.txt is left alone. */
