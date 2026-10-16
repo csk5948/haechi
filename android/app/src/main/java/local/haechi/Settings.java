@@ -8,11 +8,21 @@ final class Settings {
     private Settings() {}
 
     static final String CLOUDFLARE = "cloudflare", GOOGLE = "google", CARRIER = "carrier";
-    private static final String FILE = "settings", KEY_DNS = "dns", KEY_SPLIT = "split_hello";
+    private static final String FILE = "settings", KEY_DNS = "dns", KEY_SPLIT = "split_hello", KEY_MODE = "split_mode";
 
     /** Browser proxy that splits the TLS ClientHello; read when the VPN starts. Off by default. */
     static boolean splitHello(Context c) {
         return prefs(c).getBoolean(KEY_SPLIT, false);
+    }
+
+    /** 0 = TCP split, 1 = + pause (default), 2 = TLS record split + TCP split + pause. Applies at once. */
+    static int splitMode(Context c) {
+        return prefs(c).getInt(KEY_MODE, 1);
+    }
+
+    static void setSplitMode(Context c, int mode) {
+        prefs(c).edit().putInt(KEY_MODE, mode).apply();
+        SplitProxy.mode = mode;
     }
 
     static void setSplitHello(Context c, boolean on) {

@@ -137,6 +137,7 @@ public class BlockerService extends VpnService {
             if (Build.VERSION.SDK_INT < 29) {
                 splitStatus = "Android 10 이상에서만 지원됩니다";
             } else {
+                SplitProxy.mode = Settings.splitMode(this);
                 SplitProxy p = new SplitProxy(this::protect);
                 int port = p.start();
                 if (port > 0) {
@@ -163,6 +164,7 @@ public class BlockerService extends VpnService {
 
         SplitProxy.connections.set(0);
         SplitProxy.splits.set(0);
+        SplitProxy.splitFails.set(0);
         queries.set(0);
         blocked.set(0);
         dohFailures.set(0);

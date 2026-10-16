@@ -120,6 +120,21 @@ public class MainActivity extends Activity {
         col.addView(Ui.text(this, "켜면 VPN이 이 기기의 HTTP 프록시를 127.0.0.1(앱 안)으로 지정합니다. 프록시 설정을 따르는 앱의 "
                 + "HTTP/HTTPS 통신이 모두 이 중계기를 거치고, HTTPS는 사이트 이름이 든 첫 TLS 패킷을 둘로 나눠 보냅니다. "
                 + "내용을 풀어 보지 않고(인증서 불필요) 그대로 전달만 합니다. Android 10 이상, 프록시 설정을 무시하는 앱은 해당 없음.", 13));
+        RadioGroup splitMode = new RadioGroup(this);
+        String[] modes = {"1) TCP 조각 2개", "2) TCP 조각 2개 + 짧은 간격 (기본)", "3) TLS 레코드도 둘로 + TCP 조각 + 간격"};
+        int curMode = Settings.splitMode(this);
+        for (int i = 0; i < modes.length; i++) {
+            final int mode = i;
+            RadioButton r = new RadioButton(this);
+            r.setText(modes[i]);
+            r.setId(View.generateViewId());
+            r.setOnClickListener(v -> Settings.setSplitMode(this, mode));   // next connection on
+            splitMode.addView(r);
+            if (i == curMode) splitMode.check(r.getId());
+        }
+        col.addView(splitMode);
+        col.addView(Ui.text(this, "방식은 바로 적용됩니다. 안 될 때 1번부터 차례로 바꿔 보고 아래 '무응답'이 가장 적은 방식을 쓰세요. "
+                + "무응답 = 쪼개 보냈는데 사이트가 한 바이트도 안 주고 끊은 연결 수(막혔거나, 쪼개기를 서버가 거부한 경우).", 13));
         splitStat = Ui.text(this, "", 13);
         col.addView(splitStat);
 
@@ -171,7 +186,7 @@ public class MainActivity extends Activity {
                 + "\n내 차단 목록 " + Lists.blockSize() + "개 · 기본 제공 "
                 + (Bundled.isReady() ? Bundled.blockCount() + "개" : Bundled.isLoading() ? "불러오는 중" : "꺼짐 상태에선 안 읽음"));
         splitStat.setText(on && Settings.splitHello(this)
-                ? BlockerService.splitStatus + "\n중계기 연결 " + SplitProxy.connections.get() + " · 쪼갠 TLS 연결 " + SplitProxy.splits.get() : "");
+                ? BlockerService.splitStatus + "\n중계기 연결 " + SplitProxy.connections.get() + " · 쪼갠 TLS 연결 " + SplitProxy.splits.get() + " · 무응답 " + SplitProxy.splitFails.get() : "");
         int fails = BlockerService.dohFailures.get();
         String st = BlockerService.dohStatus;
         dohFail.setText((st.isEmpty() ? "" : "암호화 DNS: " + st + "\n")

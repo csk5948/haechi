@@ -36,6 +36,11 @@ final class SplitProxy {
 
     static final AtomicInteger connections = new AtomicInteger();
     static final AtomicInteger splits = new AtomicInteger();
+    static final AtomicInteger splitFails = new AtomicInteger();   // split sent, but the site never answered
+
+    /** 0 = TCP split; 1 = TCP split + short pause; 2 = TLS record split + TCP split + pause. */
+    static volatile int mode = 1;
+    private static final int PAUSE_MS = 40;
 
     private static final int CONNECT_TIMEOUT_MS = 8000;
     private static final int FIRST_BYTES_TIMEOUT_MS = 15000;
@@ -93,7 +98,7 @@ final class SplitProxy {
 
     private void serve(Socket client) {
         Socket up = null;
-        boolean piping = false;
+        boolean piping = false, split = false;
         try {
             client.setSoTimeout(FIRST_BYTES_TIMEOUT_MS);
             BufferedInputStream in = new BufferedInputStream(client.getInputStream(), 8192);
@@ -111,7 +116,7 @@ final class SplitProxy {
                 if (up == null) return;
                 cout.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1));
                 cout.flush();
-                firstFlight(in, up.getOutputStream());
+                split = firstFlight(in, up.getOutputStream());
             } else {
                 String target = rl[1];
                 if (!target.regionMatches(true, 0, "http://", 0, 7)) { reply(cout, "400 Bad Request"); return; }
@@ -134,7 +139,7 @@ final class SplitProxy {
 
             client.setSoTimeout(0);
             piping = true;
-            pipe(client, in, up);
+            pipe(client, in, up, split);
         } catch (IOException | RuntimeException e) {
             // reset / timeout / bad request: just drop the connection
         } finally {
@@ -177,13 +182,13 @@ final class SplitProxy {
      * Reads the browser's first TLS record and writes it upstream in two pieces. Anything that
      * does not look like TLS is passed on untouched.
      */
-    private void firstFlight(InputStream in, OutputStream out) throws IOException {
+    private boolean firstFlight(InputStream in, OutputStream out) throws IOException {
         int b = in.read();
-        if (b < 0) return;
+        if (b < 0) return false;
         if (b != 0x16) {                       // not a TLS handshake record
             out.write(b);
             out.flush();
-            return;
+            return false;
         }
         byte[] hdr = new byte[5];
         hdr[0] = (byte) b;
@@ -192,7 +197,7 @@ final class SplitProxy {
         if (len == 0 || len > 16640) {
             out.write(hdr);
             out.flush();
-            return;
+            return false;
         }
         byte[] rec = new byte[5 + len];
         System.arraycopy(hdr, 0, rec, 0, 5);
@@ -200,11 +205,35 @@ final class SplitProxy {
 
         int cut = sniMiddle(rec);
         if (cut <= 0 || cut >= rec.length) cut = Math.min(3, rec.length - 1);   // unknown layout: still split
-        out.write(rec, 0, cut);
-        out.flush();                           // TCP_NODELAY: leaves as its own segment
-        out.write(rec, cut, rec.length - cut);
-        out.flush();
+        int m = mode;
+        if (m >= 2) {
+            // Cut the handshake into two TLS records (legal: a handshake message may span records),
+            // so a filter that reassembles TCP still sees only half a name per record.
+            int k = cut > 5 ? cut - 5 : len / 2;
+            if (k < 1 || k >= len) k = Math.max(1, len / 2);
+            byte[] one = {rec[0], rec[1], rec[2], (byte) (k >> 8), (byte) k};
+            byte[] two = {rec[0], rec[1], rec[2], (byte) ((len - k) >> 8), (byte) (len - k)};
+            out.write(one);
+            out.write(rec, 5, k);
+            out.flush();
+            pause();
+            out.write(two);
+            out.write(rec, 5 + k, len - k);
+            out.flush();
+        } else {
+            out.write(rec, 0, cut);
+            out.flush();                       // TCP_NODELAY: leaves as its own segment
+            if (m >= 1) pause();
+            out.write(rec, cut, rec.length - cut);
+            out.flush();
+        }
         splits.incrementAndGet();
+        return true;
+    }
+
+    /** Gives the first piece time to leave the phone as its own packet before the second one is sent. */
+    private static void pause() {
+        try { Thread.sleep(PAUSE_MS); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
     }
 
     /** Offset in the middle of the server name inside a ClientHello record, or -1 if there is none. */
@@ -237,24 +266,26 @@ final class SplitProxy {
     // ---------------------------------------------------------------- plumbing
 
     /** Copies both directions until both ended; the last one to finish closes both sockets. */
-    private void pipe(Socket client, InputStream cin, Socket up) {
+    private void pipe(Socket client, InputStream cin, Socket up, boolean split) {
         AtomicInteger done = new AtomicInteger();
         try {
             InputStream uin = up.getInputStream();
-            pool.execute(() -> copy(uin, client, done, client, up));
+            pool.execute(() -> copy(uin, client, done, client, up, split));
         } catch (IOException | RejectedExecutionException e) {
             close(client); close(up);
             return;
         }
-        copy(cin, up, done, client, up);
+        copy(cin, up, done, client, up, false);
     }
 
-    private void copy(InputStream from, Socket to, AtomicInteger done, Socket a, Socket b) {
+    private void copy(InputStream from, Socket to, AtomicInteger done, Socket a, Socket b, boolean watch) {
         byte[] buf = new byte[16384];
+        long total = 0;
         try {
             OutputStream out = to.getOutputStream();
             int n;
             while ((n = from.read(buf)) >= 0) {
+                total += n;
                 out.write(buf, 0, n);
                 out.flush();
             }
@@ -262,6 +293,7 @@ final class SplitProxy {
         } catch (IOException e) {
             done.set(2);                                                  // reset: tear both down now
         }
+        if (watch && total == 0) splitFails.incrementAndGet();           // site hung up without a single byte
         if (done.incrementAndGet() >= 2) { close(a); close(b); }
     }
 
