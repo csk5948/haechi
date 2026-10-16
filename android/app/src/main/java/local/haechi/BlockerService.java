@@ -170,6 +170,7 @@ public class BlockerService extends VpnService {
         dohFailures.set(0);
         Settings.load(this);
         running = true;
+        SamsungBlocker.notifyUpdate(this);   // Samsung Internet: load the rules again, they apply only while we run
 
         cm = getSystemService(ConnectivityManager.class);
         refreshUpstream();
@@ -205,6 +206,7 @@ public class BlockerService extends VpnService {
 
     /** Idempotent: safe to call from STOP, onRevoke and onDestroy. */
     private synchronized void shutdown() {
+        boolean wasRunning = running;
         running = false;
         main.removeCallbacks(notificationUpdater);
         if (netCallback != null && cm != null) {
@@ -220,6 +222,7 @@ public class BlockerService extends VpnService {
         }
         reader = null;   // it exits on its own within one poll interval
         QsTile.refresh(this);
+        if (wasRunning) SamsungBlocker.notifyUpdate(this);   // rules switch off together with the filter
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }

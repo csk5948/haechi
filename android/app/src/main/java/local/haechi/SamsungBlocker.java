@@ -62,6 +62,7 @@ final class SamsungBlocker {
     static String buildFilters(Context c) throws IOException {
         String level = testLevel(c);
         StringBuilder out = new StringBuilder("[Adblock Plus 2.0]\n");
+        if (!BlockerService.running) return out.toString();   // switched off: Samsung Internet gets no rules either
         if (level.equals("minimal") || level.equals("has")) {
             out.append("example.com##h1\n");
             if (level.equals("has"))
