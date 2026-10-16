@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light, flat look: the page colour runs under the status bar and the title bar; cards are white. -->
+    <style name="Haechi" parent="android:Theme.Material.Light">
+        <item name="android:colorPrimary">#178759</item>
+        <item name="android:colorPrimaryDark">#F4F6F5</item>
+        <item name="android:colorAccent">#178759</item>
+        <item name="android:colorControlActivated">#178759</item>
+        <item name="android:colorControlHighlight">#22178759</item>
+        <item name="android:windowBackground">@color/page</item>
+        <item name="android:statusBarColor">@color/page</item>
+        <item name="android:navigationBarColor">@color/page</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:textColorPrimary">#1B1F1D</item>
+        <item name="android:textColorSecondary">#5F6763</item>
+        <item name="android:actionBarStyle">@style/Haechi.ActionBar</item>
+        <item name="android:alertDialogTheme">@style/Haechi.Dialog</item>
+        <item name="android:buttonStyle">@style/Haechi.Button</item>
+    </style>
+
+    <style name="Haechi.ActionBar" parent="android:Widget.Material.Light.ActionBar.Solid">
+        <item name="android:background">@color/page</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:titleTextStyle">@style/Haechi.ActionBar.Title</item>
+    </style>
+
+    <style name="Haechi.ActionBar.Title" parent="android:TextAppearance.Material.Widget.ActionBar.Title">
+        <item name="android:textColor">#1B1F1D</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Haechi.Button" parent="android:Widget.Material.Button.Borderless.Colored">
+        <item name="android:textAllCaps">false</item>
+    </style>
+
+    <style name="Haechi.Dialog" parent="android:Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#178759</item>
+        <item name="android:colorPrimary">#178759</item>
+    </style>
+
+    <color name="page">#F4F6F5</color>
+</resources>

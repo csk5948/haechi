@@ -465,7 +465,7 @@ public class BlockerService extends VpnService {
                 new Intent(this, BlockerService.class).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new Notification.Builder(this, CHANNEL)
-                .setSmallIcon(R.drawable.ic_shield)
+                .setSmallIcon(R.drawable.ic_haechi)
                 .setContentTitle("광고 차단 중 · " + blocked.get() + "개 차단")
                 .setContentIntent(openAppIntent())
                 .setOngoing(true)

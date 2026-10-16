@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Haechi</string>
-    <color name="icon_bg">#1E6B52</color>
+    <string name="app_name">해치</string>
+    <color name="icon_bg">#178759</color>
 </resources>

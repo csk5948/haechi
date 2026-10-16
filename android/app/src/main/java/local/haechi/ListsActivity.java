@@ -79,7 +79,7 @@ public class ListsActivity extends Activity {
         LinearLayout col = Ui.column(this);
 
         // ---- 도메인 확인 ----
-        check = new EditText(this);
+        check = Ui.field(this, new EditText(this));
         check.setHint("도메인 확인 (예: ads.example.com 또는 주소)");
         check.setSingleLine(true);
         check.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
@@ -92,15 +92,17 @@ public class ListsActivity extends Activity {
         RadioGroup tabs = new RadioGroup(this);
         tabs.setOrientation(RadioGroup.HORIZONTAL);
         for (int i = 0; i < TAB_NAMES.length; i++) {
-            RadioButton r = new RadioButton(this);
+            RadioButton r = Ui.chip(this, new RadioButton(this));
             r.setText(TAB_NAMES[i]);
             r.setId(View.generateViewId());
             final int t = i;
             r.setOnClickListener(v -> showTab(t));
-            tabs.addView(r);
+            tabs.addView(r, Ui.chipParams(this));
             if (i == tab) tabs.check(r.getId());
         }
         HorizontalScrollView tabScroll = new HorizontalScrollView(this);
+        tabScroll.setHorizontalScrollBarEnabled(false);
+        tabScroll.setPadding(0, 0, 0, Ui.dp(this, 8));
         tabScroll.addView(tabs);
         col.addView(tabScroll);
 
@@ -169,29 +171,33 @@ public class ListsActivity extends Activity {
         editPane.setOrientation(LinearLayout.VERTICAL);
 
         LinearLayout bar = Ui.row(this);
-        bar.addView(Ui.button(this, "+ 추가", v -> showAdd()), Ui.weight1());
-        clipboardButton = Ui.button(this, "클립보드 주소로 차단", v -> blockFromClipboard());
+        bar.addView(Ui.primary(this, "+ 추가", v -> showAdd()), Ui.weight1());
+        clipboardButton = Ui.button(this, "클립보드로 차단", v -> blockFromClipboard());
         bar.addView(clipboardButton, Ui.weight1());
-        pickButton = Ui.button(this, "페이지에서 고르기", v -> startActivity(new Intent(this, PickerActivity.class)));
+        pickButton = Ui.button(this, "골라 숨기기", v -> startActivity(new Intent(this, PickerActivity.class)));
         bar.addView(pickButton, Ui.weight1());
-        guideButton = Ui.button(this, "?", v -> startActivity(new Intent(this, GuideActivity.class)));
-        bar.addView(guideButton);
-        Button more = Ui.button(this, "⋯", null);
+        guideButton = Ui.round(this, "?", v -> startActivity(new Intent(this, GuideActivity.class)));
+        bar.addView(guideButton, Ui.after(this));
+        Button more = Ui.round(this, "⋯", null);
         more.setOnClickListener(v -> showMore(more));
-        bar.addView(more);
+        bar.addView(more, Ui.after(this));
         editPane.addView(bar);
 
-        search = new EditText(this);
+        search = Ui.field(this, new EditText(this));
         search.setHint("검색");
         search.setSingleLine(true);
         search.addTextChangedListener(watcher(this::reloadEntries));
-        editPane.addView(search);
+        editPane.addView(search, Ui.gap(this, 10));
         count = Ui.text(this, "", 13);
         editPane.addView(count);
 
         list = new ListView(this);
         adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_activated_1, new ArrayList<>());
         list.setAdapter(adapter);
+        list.setBackground(Ui.rounded(Ui.CARD, Ui.dp(this, 22)));
+        list.setClipToOutline(true);
+        list.setDivider(new android.graphics.drawable.ColorDrawable(0xFFEDF1EF));
+        list.setDividerHeight(1);
         list.setOnItemClickListener((p, v, pos, id) -> showEntry(raws.get(pos)));
         // Long-press: select several entries, then delete them together.
         list.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
@@ -385,7 +391,7 @@ public class ListsActivity extends Activity {
             desc.setPadding(0, 0, 0, Ui.dp(this, 8));
             bundledPane.addView(desc);
         }
-        bundledSearch = new EditText(this);
+        bundledSearch = Ui.field(this, new EditText(this));
         bundledSearch.setHint("켜진 DNS 목록에서 검색 (3글자 이상)");
         bundledSearch.setSingleLine(true);
         bundledSearch.addTextChangedListener(watcher(() -> {
@@ -399,6 +405,8 @@ public class ListsActivity extends Activity {
         ListView results = new ListView(this);
         hitAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, new ArrayList<>());
         results.setAdapter(hitAdapter);
+        results.setBackground(Ui.rounded(Ui.CARD, Ui.dp(this, 22)));
+        results.setClipToOutline(true);
         results.setOnItemClickListener((p, v, pos, id) -> {
             Bundled.Hit h = hits.get(pos);
             new AlertDialog.Builder(this)

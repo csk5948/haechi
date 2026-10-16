@@ -78,7 +78,7 @@ public class LogActivity extends Activity {
         LinearLayout col = Ui.column(this);
 
         LinearLayout buttons = Ui.row(this);
-        Button rec = Ui.button(this, "● 새로 녹화", v -> { QueryLog.startNew(); refresh(); });
+        Button rec = Ui.primary(this, "● 새로 녹화", v -> { QueryLog.startNew(); refresh(); });
         Button stop = Ui.button(this, "■ 정지", v -> { QueryLog.pause(); refresh(); });
         Button clear = Ui.button(this, "지우기", v -> { QueryLog.clear(); refresh(); });
         buttons.addView(rec, Ui.weight1());
@@ -89,7 +89,7 @@ public class LogActivity extends Activity {
         state = Ui.text(this, "", 13);
         col.addView(state);
 
-        search = new EditText(this);
+        search = Ui.field(this, new EditText(this));
         search.setHint("도메인 검색");
         search.setSingleLine(true);
         search.addTextChangedListener(new TextWatcher() {
@@ -97,21 +97,23 @@ public class LogActivity extends Activity {
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void afterTextChanged(Editable s) { refresh(); }
         });
-        col.addView(search);
+        col.addView(search, Ui.gap(this, 4));
 
         RadioGroup filters = new RadioGroup(this);
         filters.setOrientation(RadioGroup.HORIZONTAL);
         String[] labels = {"전체", "통과만", "차단만", "광고·추적·의심만"};
         for (int i = 0; i < labels.length; i++) {
-            RadioButton r = new RadioButton(this);
+            RadioButton r = Ui.chip(this, new RadioButton(this));
             r.setText(labels[i]);
             r.setId(View.generateViewId());
             final int f = i;
             r.setOnClickListener(v -> { filter = f; refresh(); });
-            filters.addView(r);
+            filters.addView(r, Ui.chipParams(this));
             if (i == ALL) filters.check(r.getId());
         }
         HorizontalScrollView filterScroll = new HorizontalScrollView(this);   // 4 options may not fit
+        filterScroll.setHorizontalScrollBarEnabled(false);
+        filterScroll.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 4));
         filterScroll.addView(filters);
         col.addView(filterScroll);
 
@@ -136,7 +138,13 @@ public class LogActivity extends Activity {
             @Override public void onScrollStateChanged(AbsListView v, int s) { scrollState = s; }
             @Override public void onScroll(AbsListView v, int a, int b, int c) {}
         });
-        col.addView(list, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        list.setBackground(Ui.rounded(Ui.CARD, Ui.dp(this, 22)));
+        list.setClipToOutline(true);
+        list.setDivider(new android.graphics.drawable.ColorDrawable(0xFFEDF1EF));
+        list.setDividerHeight(1);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
+        lp.topMargin = Ui.dp(this, 8);
+        col.addView(list, lp);
         setContentView(col);
     }
 

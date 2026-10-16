@@ -80,13 +80,13 @@ public class PickerActivity extends Activity {
 
         // ---- address bar: page history (◀ ▶ ⟳) is separate from the phone's back key, which leaves this screen ----
         LinearLayout bar = Ui.row(this);
-        bar.setPadding(p, 0, p, 0);
+        bar.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12), Ui.dp(this, 8));
         backButton = small("◀", v -> { if (web.canGoBack()) web.goBack(); });
         forwardButton = small("▶", v -> { if (web.canGoForward()) web.goForward(); });
         bar.addView(backButton);
         bar.addView(forwardButton);
         bar.addView(small("⟳", v -> web.reload()));
-        address = new EditText(this);
+        address = Ui.field(this, new EditText(this));
         address.setHint("주소 (예: namu.wiki)");
         address.setSingleLine(true);
         address.setTextSize(14);
@@ -95,7 +95,10 @@ public class PickerActivity extends Activity {
         address.setSelectAllOnFocus(true);
         address.setOnEditorActionListener((v, id, ev) -> { go(); return true; });
         bar.addView(address, Ui.weight1());
-        bar.addView(Ui.button(this, "이동", v -> go()));
+        LinearLayout.LayoutParams goParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        goParams.setMarginStart(Ui.dp(this, 6));
+        bar.addView(Ui.primary(this, "이동", v -> go()), goParams);
         col.addView(bar);
 
         // ---- page ----
@@ -146,14 +149,19 @@ public class PickerActivity extends Activity {
         // ---- picker controls ----
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(p, 0, p, p);
+        panel.setPadding(Ui.dp(this, 14), Ui.dp(this, 12), Ui.dp(this, 14), Ui.dp(this, 12));
+        android.graphics.drawable.GradientDrawable sheet = Ui.rounded(Ui.CARD, 0);
+        float r = Ui.dp(this, 24);
+        sheet.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});   // bottom sheet: round top corners
+        panel.setBackground(sheet);
+        panel.setElevation(Ui.dp(this, 8));
 
         LinearLayout top = Ui.row(this);
         pickButton = Ui.button(this, "", v -> setPicking(!picking));
         top.addView(pickButton, Ui.weight1());
         top.addView(Ui.button(this, "▲ 넓게", v -> js("__haechi.up()")));
         top.addView(Ui.button(this, "▼ 좁게", v -> js("__haechi.down()")));
-        top.addView(Ui.button(this, "?", v -> startActivity(new Intent(this, GuideActivity.class))));
+        top.addView(Ui.round(this, "?", v -> startActivity(new Intent(this, GuideActivity.class))), Ui.after(this));
         panel.addView(top);
 
         info = Ui.text(this, "", 13);
@@ -163,19 +171,19 @@ public class PickerActivity extends Activity {
         pickPane.setOrientation(LinearLayout.VERTICAL);
         RadioGroup mode = new RadioGroup(this);
         mode.setOrientation(RadioGroup.HORIZONTAL);
-        RadioButton byClass = new RadioButton(this), byShape = new RadioButton(this);
+        RadioButton byClass = Ui.chip(this, new RadioButton(this)), byShape = Ui.chip(this, new RadioButton(this));
         byClass.setText("클래스 이름으로");
         byShape.setText("구조로 (이름이 무작위인 사이트)");
         byClass.setId(View.generateViewId());
         byShape.setId(View.generateViewId());
         byClass.setOnClickListener(v -> setMode(true));
         byShape.setOnClickListener(v -> setMode(false));
-        mode.addView(byClass);
-        mode.addView(byShape);
+        mode.addView(byClass, Ui.chipParams(this));
+        mode.addView(byShape, Ui.chipParams(this));
         mode.check(byClass.getId());
         pickPane.addView(mode);
 
-        selector = new EditText(this);
+        selector = Ui.field(this, new EditText(this));
         selector.setTypeface(Typeface.MONOSPACE);
         selector.setTextSize(13);
         selector.setMaxLines(3);
@@ -195,7 +203,7 @@ public class PickerActivity extends Activity {
         // Which sites: this one (default), empty = every site, or a wildcard like aa*.com for mirrors.
         LinearLayout siteRow = Ui.row(this);
         siteRow.addView(Ui.text(this, "사이트 ", 14));
-        site = new EditText(this);
+        site = Ui.field(this, new EditText(this));
         site.setHint("비우면 모든 사이트");
         site.setSingleLine(true);
         site.setTextSize(14);
@@ -213,7 +221,7 @@ public class PickerActivity extends Activity {
         LinearLayout bottom = Ui.row(this);
         previewButton = Ui.button(this, "", v -> setPreview(!previewing));
         bottom.addView(previewButton, Ui.weight1());
-        bottom.addView(Ui.button(this, "규칙 추가", v -> addRule()), Ui.weight1());
+        bottom.addView(Ui.primary(this, "규칙 추가", v -> addRule()), Ui.weight1());
         pickPane.addView(bottom);
         panel.addView(pickPane);
         col.addView(panel);
@@ -266,11 +274,7 @@ public class PickerActivity extends Activity {
 
     /** Narrow button for the address bar. */
     private Button small(String label, View.OnClickListener l) {
-        Button b = Ui.button(this, label, l);
-        b.setMinWidth(0);
-        b.setMinimumWidth(0);
-        b.setPadding(Ui.dp(this, 10), 0, Ui.dp(this, 10), 0);
-        return b;
+        return Ui.round(this, label, l);
     }
 
     @Override

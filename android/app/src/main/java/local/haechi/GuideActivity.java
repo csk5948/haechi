@@ -70,6 +70,7 @@ public class GuideActivity extends Activity {
     private void section(String title) {
         TextView t = Ui.text(this, title, 17);
         t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTextColor(Ui.TEXT);
         t.setPadding(0, Ui.dp(this, 18), 0, Ui.dp(this, 4));
         col.addView(t);
     }
@@ -82,10 +83,10 @@ public class GuideActivity extends Activity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4));
-        box.setBackgroundColor(0xFFF1F3F4);
+        box.setBackground(Ui.rounded(Ui.CARD, Ui.dp(this, 14)));
         TextView code = Ui.text(this, rule, 14);
         code.setTypeface(Typeface.MONOSPACE);
-        code.setTextColor(0xFF1A237E);
+        code.setTextColor(Ui.ON_TONAL);
         code.setPadding(0, Ui.dp(this, 2), 0, 0);
         box.addView(code);
         TextView what = Ui.text(this, meaning, 12);

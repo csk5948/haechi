@@ -41,7 +41,7 @@ public class EditActivity extends Activity {
         LinearLayout col = Ui.column(this);
         col.addView(Ui.text(this, help, 13));
 
-        edit = new EditText(this);
+        edit = Ui.field(this, new EditText(this));
         edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         edit.setTypeface(Typeface.MONOSPACE);
@@ -58,7 +58,7 @@ public class EditActivity extends Activity {
             col.addView(Ui.button(this, "쓰는 법 (예시 보기)", v ->
                     startActivity(new android.content.Intent(this, GuideActivity.class))));
         }
-        col.addView(Ui.button(this, "저장", v -> save()));
+        col.addView(Ui.primary(this, "저장", v -> save()), Ui.gap(this, 8));
         setContentView(col);
     }
 
