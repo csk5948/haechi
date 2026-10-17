@@ -97,6 +97,7 @@ public class BlockerService extends VpnService {
         // Anything other than STOP means start: our own button, the system's "always-on VPN"
         // (action android.net.VpnService), or a sticky restart with a null intent.
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            Settings.setWantOn(this, false);   // the user switched it off: don't bring it back after an update
             shutdown();
             return START_NOT_STICKY;
         }
@@ -111,6 +112,7 @@ public class BlockerService extends VpnService {
 
     @Override
     public void onRevoke() {   // another VPN took over, or the user revoked us in settings
+        Settings.setWantOn(this, false);
         shutdown();
     }
 
@@ -191,6 +193,7 @@ public class BlockerService extends VpnService {
         dohFailures.set(0);
         Settings.load(this);
         running = true;
+        Settings.setWantOn(this, true);      // remembered so an app update can switch it back on
         SamsungBlocker.notifyUpdate(this);   // Samsung Internet: load the rules again, they apply only while we run
 
         cm = getSystemService(ConnectivityManager.class);

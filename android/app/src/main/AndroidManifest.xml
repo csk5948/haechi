@@ -134,6 +134,15 @@
             android:authorities="local.haechi.contentBlocker.contentProvider"
             android:exported="true" />
 
+        <!-- After an app update: switch the filter back on if it was on (MY_PACKAGE_REPLACED is sent only to us). -->
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Quick Settings tile. Only the system (BIND_QUICK_SETTINGS_TILE) can bind it. -->
         <service
             android:name=".QsTile"

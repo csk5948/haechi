@@ -40,6 +40,15 @@ final class Settings {
         prefs(c).edit().putStringSet(KEY_EXCLUDED, new java.util.HashSet<>(pkgs)).apply();
     }
 
+    /** True while the user wants the filter on (set on start, cleared by 끄기 or another VPN taking over). */
+    static boolean wantOn(Context c) {
+        return prefs(c).getBoolean("want_on", false);
+    }
+
+    static void setWantOn(Context c, boolean on) {
+        prefs(c).edit().putBoolean("want_on", on).apply();
+    }
+
     /** DoH URL in use, or null for "carrier DNS, unencrypted". Read by BlockerService per query. */
     static volatile String dohUrl = Doh.CLOUDFLARE;
 
