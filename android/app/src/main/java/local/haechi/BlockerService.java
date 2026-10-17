@@ -59,6 +59,17 @@ public class BlockerService extends VpnService {
     private static final String TAG = "haechi";
     private static final String TUN_ADDRESS = "10.111.222.1";
     private static final String FAKE_DNS = "10.111.222.2";
+
+    /** Default "해치에서 뺄 앱" (not filtered, no proxy): Samsung Wallet/Pay and the parts it relies on. */
+    static final String[] DEFAULT_EXCLUDED = {
+            "com.samsung.android.spay",            // Samsung Wallet (Samsung Pay)
+            "com.samsung.android.spayfw",          // Samsung Pay framework
+            "com.samsung.android.spaymini",        // Samsung Pay mini
+            "com.samsung.android.samsungpay.gear", // Samsung Pay (watch plugin)
+            "com.samsung.android.samsungpass",     // Samsung Pass (sign-in for Wallet)
+    };
+    /** How many of the chosen apps are installed and were kept out of the VPN at the last start. */
+    static volatile int excludedApps;
     private static final String FALLBACK_DNS = "1.1.1.1";
     private static final int UPSTREAM_TIMEOUT_MS = 1500;
     private static final String CHANNEL = "filter";
@@ -130,6 +141,16 @@ public class BlockerService extends VpnService {
         b.allowFamily(OsConstants.AF_INET6);
         // Otherwise Android 10+ would treat every network as metered while we run.
         if (Build.VERSION.SDK_INT >= 29) b.setMetered(false);
+        // Apps the user keeps out ("해치에서 뺄 앱") go around the VPN entirely: their own DNS, no proxy.
+        // Samsung Pay stops working when its domains are filtered or a proxy is set.
+        excludedApps = 0;
+        for (String pkg : Settings.excludedApps(this)) {
+            if (pkg.equals(getPackageName())) continue;
+            try {
+                b.addDisallowedApplication(pkg);
+                excludedApps++;
+            } catch (PackageManager.NameNotFoundException ignored) {}   // not installed
+        }
 
         // Optional: hand browsers a local proxy that splits the TLS ClientHello (API 29+).
         splitStatus = "";

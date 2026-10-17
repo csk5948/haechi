@@ -21,6 +21,12 @@
         <!-- Samsung Internet: to send it ACTION_UPDATE and open its "Ad blockers" settings. -->
         <package android:name="com.sec.android.app.sbrowser" />
         <package android:name="com.sec.android.app.sbrowser.beta" />
+        <!-- Samsung Pay parts without a launcher icon: so "해치에서 뺄 앱" can show their names. -->
+        <package android:name="com.samsung.android.spay" />
+        <package android:name="com.samsung.android.spayfw" />
+        <package android:name="com.samsung.android.spaymini" />
+        <package android:name="com.samsung.android.samsungpay.gear" />
+        <package android:name="com.samsung.android.samsungpass" />
         <intent>
             <action android:name="com.samsung.android.sbrowser.contentBlocker.ACTION_SETTING" />
         </intent>
@@ -86,6 +92,11 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ExcludeActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
 
         <activity
             android:name=".GuideActivity"

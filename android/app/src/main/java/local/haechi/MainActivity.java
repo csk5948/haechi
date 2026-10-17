@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
 
     private Button toggle;
     private LinearLayout hero;
+    private ImageView art;
     private TextView status, counts, dohFail, samsungDiag, splitStat;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = new Runnable() {
@@ -51,7 +52,7 @@ public class MainActivity extends Activity {
         hero = Ui.card(this);
         hero.setGravity(Gravity.CENTER_HORIZONTAL);
         hero.setPadding(Ui.dp(this, 20), Ui.dp(this, 24), Ui.dp(this, 20), Ui.dp(this, 20));
-        ImageView art = new ImageView(this);
+        art = new ImageView(this);
         art.setImageResource(R.drawable.haechi_art);
         art.setBackground(Ui.rounded(Ui.PRIMARY, Ui.dp(this, 32)));
         art.setClipToOutline(true);
@@ -76,6 +77,7 @@ public class MainActivity extends Activity {
         menu.addView(navRow("기록 보기", "어떤 앱이 어떤 도메인에 접속했나", LogActivity.class));
         menu.addView(navRow("목록 관리", "차단 · 허용 · 브라우저 규칙 · 기본 제공 목록", ListsActivity.class));
         menu.addView(navRow("광고 요소 골라 숨기기", "앱 안 브라우저에서 광고를 눌러 삼성 인터넷 규칙 만들기", PickerActivity.class));
+        menu.addView(navRow("해치에서 뺄 앱", "결제·은행 앱처럼 해치를 거치면 안 되는 앱", ExcludeActivity.class));
         col.addView(menu, Ui.cardParams(this));
 
         // ---- Samsung Internet ----
@@ -158,6 +160,8 @@ public class MainActivity extends Activity {
                 + "• DNS 차단은 도메인 단위예요. YouTube처럼 광고와 본문이 같은 도메인에서 오면 막을 수 없어요.\n"
                 + "• 열쇠(VPN) 아이콘은 Android의 VPN 기능을 쓰기 때문에 보여요. 해치로 들어오는 것은 "
                 + "DNS 질의뿐이고, 나머지 통신은 평소처럼 바로 나가요.\n"
+                + "• 해치를 거치면 안 되는 앱(결제·은행 등)은 '해치에서 뺄 앱'에서 고르세요. "
+                + "삼성페이·삼성 패스는 처음부터 빠져 있어요.\n"
                 + "• 기록은 메모리에만 있고, 앱이 종료되면 사라져요.", 14));
         col.addView(guide, Ui.cardParams(this));
 
@@ -197,6 +201,7 @@ public class MainActivity extends Activity {
             if (on) Ui.tint(this, toggle, Ui.ON_PRIMARY, Ui.PRIMARY);
             else Ui.tint(this, toggle, Ui.PRIMARY, Ui.ON_PRIMARY);
             hero.setBackground(Ui.rounded(on ? Ui.PRIMARY : Ui.CARD, Ui.dp(this, 22)));
+            art.setImageResource(on ? R.drawable.haechi_art_on : R.drawable.haechi_art);   // on: holding a shield
             status.setTextColor(on ? Ui.ON_PRIMARY : Ui.TEXT);
             counts.setTextColor(on ? 0xDDFFFFFF : Ui.SUB);
         }

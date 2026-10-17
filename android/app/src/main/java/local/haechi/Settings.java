@@ -8,7 +8,8 @@ final class Settings {
     private Settings() {}
 
     static final String CLOUDFLARE = "cloudflare", GOOGLE = "google", CARRIER = "carrier";
-    private static final String FILE = "settings", KEY_DNS = "dns", KEY_SPLIT = "split_hello", KEY_MODE = "split_mode";
+    private static final String FILE = "settings", KEY_DNS = "dns", KEY_SPLIT = "split_hello", KEY_MODE = "split_mode",
+            KEY_EXCLUDED = "excluded_apps";
 
     /** Browser proxy that splits the TLS ClientHello; read when the VPN starts. Off by default. */
     static boolean splitHello(Context c) {
@@ -27,6 +28,16 @@ final class Settings {
 
     static void setSplitHello(Context c, boolean on) {
         prefs(c).edit().putBoolean(KEY_SPLIT, on).apply();
+    }
+
+    /** Packages kept out of the VPN; read when the VPN starts. Default: Samsung Pay and friends. */
+    static java.util.Set<String> excludedApps(Context c) {
+        return new java.util.TreeSet<>(prefs(c).getStringSet(KEY_EXCLUDED,
+                new java.util.HashSet<>(java.util.Arrays.asList(BlockerService.DEFAULT_EXCLUDED))));
+    }
+
+    static void setExcludedApps(Context c, java.util.Set<String> pkgs) {
+        prefs(c).edit().putStringSet(KEY_EXCLUDED, new java.util.HashSet<>(pkgs)).apply();
     }
 
     /** DoH URL in use, or null for "carrier DNS, unencrypted". Read by BlockerService per query. */
