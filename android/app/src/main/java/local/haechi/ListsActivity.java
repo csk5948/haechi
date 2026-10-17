@@ -392,11 +392,11 @@ public class ListsActivity extends Activity {
         Domains.chooseScopeAndBlock(this, host, () -> { reloadEntries(); updateCheck(); });
     }
 
-    /** "⋯": 원본 텍스트로 편집 (old raw editor), 기본 목록으로 되돌리기 (block list only). */
+    /** "⋯": 원본 텍스트로 편집 (old raw editor), 차단 목록 비우기 (block list only). */
     private void showMore(View anchor) {
         PopupMenu m = new PopupMenu(this, anchor);
         m.getMenu().add(0, 1, 0, "원본 텍스트로 편집");
-        if (tab == TAB_BLOCK) m.getMenu().add(0, 2, 0, "기본 목록으로 되돌리기");
+        if (tab == TAB_BLOCK) m.getMenu().add(0, 2, 0, "차단 목록 비우기 (처음 상태로)");
         if (rules()) m.getMenu().add(0, 3, 0, "와일드카드(*)로 찾은 도메인");
         if (openPack != null) {
             m.getMenu().add(0, 5, 0, "팩 이름 바꾸기");
@@ -426,8 +426,8 @@ public class ListsActivity extends Activity {
             } else if (item.getItemId() == 1) {
                 startActivity(new Intent(this, EditActivity.class).putExtra(EditActivity.EXTRA_FILE, file()));
             } else {
-                confirm("차단 목록을 기본 목록으로 되돌릴까요? 직접 추가한 항목은 사라집니다. (허용 목록은 그대로)",
-                        () -> edit(() -> Lists.resetDefault(this), "기본 목록으로 되돌렸습니다"));
+                confirm("내 차단 목록을 비울까요? 직접 추가한 항목이 모두 사라집니다. 광고는 기본 제공 목록이 계속 막아요. (허용 목록은 그대로)",
+                        () -> edit(() -> Lists.resetDefault(this), "차단 목록을 비웠어요"));
             }
             return true;
         });
