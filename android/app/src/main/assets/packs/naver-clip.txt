@@ -1,0 +1,12 @@
+! 팩: 네이버 검색: 클립 빼기
+! 네이버 검색 결과(m.search.naver.com)에서 네이버 클립(짧은 영상)을 숨김.
+! 2026-10-17 에뮬레이터 크롬에서 '강아지', '아이유' 검색 결과를 열어 요소 이름을 확인하고 만듦.
+! 네이버가 이름을 바꾸면 다시 찾아야 함.
+
+! '네이버 클립' 묶음 칸 통째로 (클립 항목이 든 결과 상자)
+search.naver.com##div.sc:has([data-template-id="clipItem"])
+search.naver.com##div.sc:has([data-airs-area="clip"])
+! 인물·연예 정보 상자 안 영상 줄에 섞인 클립만 (다른 영상은 그대로)
+search.naver.com##li:has(> a[data-service-type="CLIP"])
+! 검색 탭 줄의 '클립' 탭
+search.naver.com###_sch_tab a.tab[href*="tab.m_clip"]

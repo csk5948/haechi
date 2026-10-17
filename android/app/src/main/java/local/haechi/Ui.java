@@ -167,6 +167,38 @@ final class Ui {
         return r;
     }
 
+    /** iOS-style switch: pill track (green on, grey off) with a round white knob, no text. */
+    static android.widget.Switch toggle(Context c) {
+        android.widget.Switch s = new android.widget.Switch(c);
+        int w = dp(c, 51), h = dp(c, 31), pad = dp(c, 2);
+
+        GradientDrawable knob = new GradientDrawable();
+        knob.setShape(GradientDrawable.OVAL);
+        knob.setColor(0xFFFFFFFF);
+        knob.setStroke(dp(c, 1), 0x14000000);   // faint edge instead of a shadow
+        knob.setSize(h - 2 * pad, h - 2 * pad);
+        android.graphics.drawable.InsetDrawable thumb = new android.graphics.drawable.InsetDrawable(knob, pad);
+
+        StateListDrawable track = new StateListDrawable();
+        track.addState(new int[]{android.R.attr.state_checked}, pill(PRIMARY, w, h));
+        track.addState(new int[]{}, pill(0xFFE3E7E5, w, h));
+
+        s.setThumbDrawable(thumb);
+        s.setTrackDrawable(track);
+        s.setThumbTintList(null);
+        s.setTrackTintList(null);
+        s.setShowText(false);
+        s.setSwitchMinWidth(w);
+        s.setBackground(null);
+        return s;
+    }
+
+    private static GradientDrawable pill(int color, int w, int h) {
+        GradientDrawable g = rounded(color, h / 2);
+        g.setSize(w, h);
+        return g;
+    }
+
     /** Spacing between chips in a horizontal RadioGroup. */
     static RadioGroup.LayoutParams chipParams(Context c) {
         RadioGroup.LayoutParams lp = new RadioGroup.LayoutParams(

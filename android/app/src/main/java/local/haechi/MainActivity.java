@@ -117,7 +117,7 @@ public class MainActivity extends Activity {
 
         // ---- browser proxy that splits the TLS ClientHello (read when the VPN starts) ----
         LinearLayout splitCard = Ui.card(this);
-        Switch split = new Switch(this);
+        Switch split = Ui.toggle(this);
         split.setText("SNI 쪼개기");
         split.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
         split.setTypeface(Typeface.DEFAULT_BOLD);

@@ -201,7 +201,7 @@ public class ListsActivity extends Activity {
         packTitle = Ui.heading(this, "");
         packTitle.setPadding(Ui.dp(this, 10), 0, 0, 0);
         packHeader.addView(packTitle, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        packSwitch = new Switch(this);
+        packSwitch = Ui.toggle(this);
         packHeader.addView(packSwitch);
         editPane.addView(packHeader);
 
@@ -492,7 +492,7 @@ public class ListsActivity extends Activity {
             sub.setPadding(0, Ui.dp(this, 2), 0, 0);
             texts.addView(sub);
             row.addView(texts, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            Switch sw = new Switch(this);
+            Switch sw = Ui.toggle(this);
             sw.setFocusable(false);   // row taps still open the pack
             row.addView(sw);
         }
@@ -584,7 +584,7 @@ public class ListsActivity extends Activity {
         b.show();
     }
 
-    /** List row: the entry, and at the right end a ❚❚ / ▶ button that pauses or resumes just that entry. */
+    /** List row: the entry, and at the right end an on/off switch (off = this entry is paused). */
     private final class EntryAdapter extends ArrayAdapter<String> {
         EntryAdapter() { super(ListsActivity.this, 0, new ArrayList<>()); }
 
@@ -599,9 +599,12 @@ public class ListsActivity extends Activity {
                 row.setBackground(bg);   // selected while long-press selecting
                 TextView label = Ui.text(ListsActivity.this, "", 16);
                 row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-                Button toggle = Ui.round(ListsActivity.this, "", null);
+                Switch toggle = Ui.toggle(ListsActivity.this);
                 toggle.setFocusable(false);   // keep row taps going to the list
-                row.addView(toggle, Ui.after(ListsActivity.this));
+                LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                tp.setMarginStart(Ui.dp(ListsActivity.this, 10));
+                row.addView(toggle, tp);
             }
             String raw = raws.get(pos);
             boolean paused = Lists.isPaused(raw);
@@ -610,11 +613,12 @@ public class ListsActivity extends Activity {
             label.setTextColor(paused ? 0xFFA0A7A3 : Ui.TEXT);
             label.setPaintFlags(paused ? label.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
                     : label.getPaintFlags() & ~android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
-            Button toggle = (Button) row.getChildAt(1);
-            toggle.setText(paused ? "▶" : "❚❚");
-            toggle.setContentDescription(paused ? "재개" : "일시정지");
-            toggle.setOnClickListener(b -> edit(() -> Lists.setPaused(ListsActivity.this, file(),
-                    java.util.Collections.singleton(raw), !paused), paused ? "재개함" : "일시정지함"));
+            Switch toggle = (Switch) row.getChildAt(1);   // on = in use, off = paused
+            toggle.setOnCheckedChangeListener(null);
+            toggle.setChecked(!paused);
+            toggle.setContentDescription(paused ? "꺼짐 · 켜면 다시 적용" : "켜짐 · 끄면 일시정지");
+            toggle.setOnCheckedChangeListener((b, on) -> edit(() -> Lists.setPaused(ListsActivity.this, file(),
+                    java.util.Collections.singleton(raw), !on), on ? "켬" : "끔 (일시정지)"));
             return row;
         }
     }
@@ -625,7 +629,7 @@ public class ListsActivity extends Activity {
         bundledPane = new LinearLayout(this);
         bundledPane.setOrientation(LinearLayout.VERTICAL);
         for (Bundled.Info info : Bundled.LISTS) {
-            Switch sw = new Switch(this);
+            Switch sw = Ui.toggle(this);
             sw.setText(info.title);
             sw.setTextSize(16);
             sw.setChecked(Bundled.isOn(this, info));
