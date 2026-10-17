@@ -111,8 +111,11 @@ final class Bundled {
         t.start();
     }
 
+    /** The newer copy ListUpdater downloaded if there is one, else the copy inside the APK. */
     static BufferedReader open(Context c, Info i) throws IOException {
-        return new BufferedReader(new InputStreamReader(c.getAssets().open(i.asset), StandardCharsets.UTF_8));
+        java.io.File f = ListUpdater.file(c, i.id);
+        java.io.InputStream in = f != null ? new java.io.FileInputStream(f) : c.getAssets().open(i.asset);
+        return new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
     }
 
     // ---------------------------------------------------------------- lookup

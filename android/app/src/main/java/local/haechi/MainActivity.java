@@ -93,6 +93,7 @@ public class MainActivity extends Activity {
 
         // ---- DNS server setting (applies to the running filter immediately) ----
         Settings.load(this);
+        ListUpdater.schedule(this);   // daily Wi-Fi check for newer public lists (if 자동 업데이트 is on)
         LinearLayout dnsCard = Ui.card(this);
         dnsCard.addView(Ui.heading(this, "DNS 서버"));
         RadioGroup dns = new RadioGroup(this);

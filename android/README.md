@@ -24,7 +24,17 @@ AndroidX·Kotlin·분석 도구 없음. 앱이 하는 네트워크 통신은 "�
 7. 목록 파일: 앱 전용 저장소의 `block.txt`(처음 실행 시 기본 목록 복사 – 기존 설치도 그대로 "내 차단 목록"으로 유지),
    `allow.txt`(처음엔 비어 있음), `browser.txt`(삼성 인터넷 규칙). 모두 일반 텍스트이고 백업/기기 이전 대상에서 제외됩니다.
 
-## 기본 제공 목록 (읽기 전용, APK 안에 포함)
+## 기본 제공 목록 (APK 안에 포함, 업데이트 가능)
+
+**업데이트**(목록 관리 › 기본 제공 목록 맨 위, `ListUpdater.java`): **지금 업데이트**를 누르면 세 목록을 원본 주소에서 새로 받아
+`files/lists/<id>.txt`에 저장하고, 그 뒤로는 APK 안의 것 대신 그 파일을 씁니다. DNS 목록은 `tools/convert_lists.py`와 같은 규칙으로 변환합니다.
+- 바뀌지 않은 목록은 ETag/Last-Modified로 확인만 하고 받지 않습니다(304).
+- 받은 결과가 너무 작으면(AdGuard 5만, List-KR 50, YousList 1000 규칙 미만) 망가진 것으로 보고 이전 목록을 유지합니다.
+- 바뀌면 DNS 표를 다시 읽고(필터가 켜져 있을 때) YousList는 삼성 인터넷에 업데이트를 알립니다.
+- **자동으로도 업데이트**(기본 꺼짐): 켜면 JobScheduler가 하루 한 번, 와이파이·배터리 충분할 때 실행하고 마지막 성공이 3일 이상 지났을 때만 받습니다.
+  재부팅 후에도 유지하려고 `RECEIVE_BOOT_COMPLETED` 권한을 씁니다.
+
+목록:
 
 | 목록 | 용도 | 기본 |
 |---|---|---|
@@ -171,6 +181,7 @@ SNI 필터링(TLS 첫 패킷의 사이트 이름을 보고 연결을 끊는 방�
 | `ACCESS_NETWORK_STATE` | 현재 Wi-Fi/모바일 네트워크의 DNS 서버 주소 읽기, 네트워크 변경 감지 |
 | `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE` | 화면을 꺼도 필터가 계속 동작하도록 알림과 함께 실행 (Android 14+는 유형 명시 필요) |
 | `POST_NOTIFICATIONS` | Android 13+에서 "광고 차단 중 · N개 차단" 알림 표시 |
+| `RECEIVE_BOOT_COMPLETED` | 목록 자동 업데이트(켰을 때만)의 예약이 재부팅 뒤에도 남도록 |
 | `BIND_VPN_SERVICE` (서비스 보호용) | 시스템만 VPN 서비스에 연결할 수 있게 함. 앱이 요청하는 권한이 아님 |
 | `BIND_QUICK_SETTINGS_TILE` (서비스 보호용) | 시스템만 빠른 설정 타일에 연결할 수 있게 함 |
 | `com.samsung.android.sbrowser.permission.CONTENTBLOCKER` | 삼성 가이드가 요구하는 광고 차단기 표시용 권한 |
@@ -186,9 +197,11 @@ SNI 필터링(TLS 첫 패킷의 사이트 이름을 보고 연결을 끊는 방�
 - `BlockerService.java:289` `attribute()` – 통신 없음. 시스템에 "이 소켓의 앱이 누구인가"만 물어봄
 
 - `PickerActivity.java` – 앱 안 브라우저(WebView)가 사용자가 연 페이지를 불러옵니다. 고른 선택자는 밖으로 보내지 않습니다.
+- `ListUpdater.java` `fetch()` – 기본 제공 목록 업데이트. "지금 업데이트"를 누를 때, 또는 자동 업데이트를 켰을 때만(기본 꺼짐)
+  아래 세 원본 주소로 HTTPS GET. 보내는 것은 요청과 `If-None-Match`/`If-Modified-Since`(받은 목록이 바뀌었는지 묻는 값)뿐입니다.
 
 그 외 파일(`Dns.java`, `Lists.java`, `Bundled.java`, `Domains.java`, `Labels.java`, `QueryLog.java`, `Settings.java`,
-`SamsungBlocker.java`, `ContentBlockerProvider.java`, 화면들)에는 네트워크 코드가 없습니다. 기본 제공 목록은 APK에 들어 있고 내려받지 않습니다.
+`SamsungBlocker.java`, `ContentBlockerProvider.java`, 화면들)에는 네트워크 코드가 없습니다.
 
 ## 사용
 

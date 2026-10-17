@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Android 13+: allow showing that notification. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Keeps the daily list-update job scheduled after a reboot (JobInfo.setPersisted). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Android 11+: lets the 기록 screen show the NAME of apps that have a launcher icon
          (otherwise only "uid 10123"). Grants no access to the apps or their data. -->
@@ -133,6 +135,12 @@
             android:name=".ContentBlockerProvider"
             android:authorities="local.haechi.contentBlocker.contentProvider"
             android:exported="true" />
+
+        <!-- Daily Wi-Fi check for newer public lists (ListUpdater). Only the system can bind it. -->
+        <service
+            android:name=".ListUpdater$Job"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <!-- After an app update: switch the filter back on if it was on (MY_PACKAGE_REPLACED is sent only to us). -->
         <receiver

@@ -130,6 +130,7 @@ public class BlockerService extends VpnService {
         }
         // Bundled lists load in the background; until then only the user's own lists apply.
         Bundled.ensureLoaded(this);
+        ListUpdater.schedule(this);
         if (VpnService.prepare(this) != null) return false;   // user consent missing
 
         Builder b = new Builder()

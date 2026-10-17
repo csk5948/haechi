@@ -625,9 +625,53 @@ public class ListsActivity extends Activity {
 
     // ---------------------------------------------------------------- bundled lists
 
+    private TextView updStatus;
+    private final List<TextView> bundledHeaders = new ArrayList<>();
+
+    /** Source + date line of each list (changes after an update). */
+    private void refreshBundledHeaders() {
+        for (int i = 0; i < bundledHeaders.size(); i++) {
+            Bundled.Info info = Bundled.LISTS[i];
+            bundledHeaders.get(i).setText(Bundled.header(this, info)
+                    + (ListUpdater.file(this, info.id) != null ? "" : "\n(앱에 들어 있는 목록)")
+                    + (info.dns ? "" : "\n(삼성 인터넷 전용 · DNS 차단에는 쓰지 않음)"));
+        }
+    }
+
     private View buildBundledPane() {
         bundledPane = new LinearLayout(this);
         bundledPane.setOrientation(LinearLayout.VERTICAL);
+
+        // ---- automatic update of these lists from their original sources ----
+        LinearLayout upd = Ui.card(this);
+        upd.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), Ui.dp(this, 16), Ui.dp(this, 12));
+        Switch auto = Ui.toggle(this);
+        auto.setText("자동으로도 업데이트 (와이파이, 3일마다)");
+        auto.setTextSize(15);
+        auto.setTextColor(Ui.TEXT);
+        auto.setChecked(ListUpdater.isAuto(this));
+        auto.setOnCheckedChangeListener((b, on) -> { ListUpdater.setAuto(this, on); toast(on ? "자동 업데이트 켬" : "자동 업데이트 끔"); });
+        upd.addView(auto);
+        updStatus = Ui.text(this, ListUpdater.status(this), 12);
+        upd.addView(updStatus);
+        Button now = Ui.button(this, "지금 업데이트", null);
+        now.setOnClickListener(v -> {
+            now.setEnabled(false);
+            updStatus.setText("받는 중…");
+            new Thread(() -> {
+                String st = ListUpdater.update(getApplicationContext(), true);
+                handler.post(() -> {
+                    if (isDestroyed()) return;
+                    now.setEnabled(true);
+                    updStatus.setText(st);
+                    refreshBundledHeaders();
+                    handler.postDelayed(this::updateCheck, 500);
+                });
+            }, "list-update-now").start();
+        });
+        upd.addView(now, Ui.gap(this, 4));
+        bundledPane.addView(upd, Ui.cardParams(this));
+
         for (Bundled.Info info : Bundled.LISTS) {
             Switch sw = Ui.toggle(this);
             sw.setText(info.title);
@@ -640,10 +684,12 @@ public class ListsActivity extends Activity {
                 if (bundledSearch.length() > 0) startSearch();
             });
             bundledPane.addView(sw);
-            TextView desc = Ui.text(this, Bundled.header(this, info) + (info.dns ? "" : "\n(삼성 인터넷 전용 · DNS 차단에는 쓰지 않음)"), 12);
+            TextView desc = Ui.text(this, "", 12);
             desc.setPadding(0, 0, 0, Ui.dp(this, 8));
             bundledPane.addView(desc);
+            bundledHeaders.add(desc);
         }
+        refreshBundledHeaders();
         bundledSearch = Ui.field(this, new EditText(this));
         bundledSearch.setHint("켜진 DNS 목록에서 검색 (3글자 이상)");
         bundledSearch.setSingleLine(true);
