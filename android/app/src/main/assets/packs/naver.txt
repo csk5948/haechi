@@ -1,0 +1,15 @@
+! 팩: 네이버 메인 검색창만
+! m.naver.com 첫 화면에서 검색창만 남기고 광고 배너·메뉴 아이콘·피드·하단을 숨김.
+! 2026-10-17 에뮬레이터 크롬에서 m.naver.com 을 열어 요소 이름을 확인하고 만듦.
+! 옆으로 넘기는 뉴스·엔터 등 다른 판과 검색 결과 화면은 그대로. 네이버가 이름을 바꾸면 다시 찾아야 함.
+
+! 검색창 아래 광고 배너
+m.naver.com###HOME_AD
+! 메일·카페·쇼핑·뉴스… 메뉴 줄
+m.naver.com###MM_home_menu_container
+! 날씨·환율과 그 아래 추천 피드 전체
+m.naver.com###MM_homefeed_react_root
+! 앱 설치·알림 유도 배너
+m.naver.com###MM_HOME_NUDGE_BANNER
+! 맨 아래 하단 정보
+m.naver.com##.id_search > .main_footer
