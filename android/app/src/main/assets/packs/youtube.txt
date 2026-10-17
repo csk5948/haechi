@@ -1,0 +1,28 @@
+! 팩: 유튜브 (모바일 웹)
+! 쇼츠·추천 영상·댓글·광고 칸 숨기기. 필요 없는 줄은 일시정지하세요.
+! 2026-10-17 에뮬레이터 크롬에서 m.youtube.com 을 열어 요소 이름을 확인하고 만듦.
+! 한계: 영상 재생 중에 나오는 광고(프리롤)는 숨기기로 못 없앰. 유튜브가 이름을 바꾸면 다시 찾아야 함.
+
+! ---- 쇼츠 숨기기 ----
+! 아래 탭의 '쇼츠' 버튼
+youtube.com##ytm-pivot-bar-item-renderer:has(.pivot-shorts)
+! 검색 결과·피드 사이의 쇼츠 묶음
+youtube.com##grid-shelf-view-model:has(ytm-shorts-lockup-view-model)
+youtube.com##ytm-rich-section-renderer:has(ytm-shorts-lockup-view-model)
+youtube.com##ytm-reel-shelf-renderer
+
+! ---- 영상 아래 추천 영상 숨기기 (집중 모드) ----
+youtube.com##ytm-item-section-renderer[section-identifier="related-items"]
+
+! ---- 댓글 숨기기 ----
+youtube.com##yt-video-metadata-carousel-view-model
+
+! ---- 광고·홍보 칸 숨기기 (공개 차단 목록들이 쓰는 이름) ----
+youtube.com##ad-slot-renderer
+youtube.com##ytm-companion-slot
+youtube.com##ytm-companion-ad-renderer
+youtube.com##ytm-promoted-sparkles-web-renderer
+youtube.com##ytm-promoted-video-renderer
+youtube.com##ytm-statement-banner-renderer
+youtube.com##ytm-mealbar-promo-renderer
+youtube.com##ytm-paid-content-overlay-renderer

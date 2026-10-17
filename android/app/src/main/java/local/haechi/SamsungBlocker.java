@@ -43,7 +43,8 @@ final class SamsungBlocker {
         StringBuilder out = new StringBuilder("[Adblock Plus 2.0]\n");
         if (!BlockerService.running) return out.toString();   // switched off: Samsung Internet gets no rules either
         Lists.load(c);   // the provider may run before any screen or the VPN service
-        for (String line : Lists.read(c, Lists.BROWSER).split("\n")) {
+        // browser.txt, then every switched-on pack (same format)
+        for (String line : (Lists.read(c, Lists.BROWSER) + "\n" + Packs.enabledText(c)).split("\n")) {
             String t = line.trim();
             if (t.isEmpty() || t.startsWith("!")) continue;
             if (t.startsWith("#") && !t.startsWith("##") && !t.startsWith("#?#")) continue;   // '#' notes are not ABP

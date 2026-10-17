@@ -44,8 +44,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * reloads the running filter (and notifies Samsung Internet) through Lists.save().
  */
 public class ListsActivity extends Activity {
-    private static final int TAB_BLOCK = 0, TAB_ALLOW = 1, TAB_BROWSER = 2, TAB_BUNDLED = 3;
-    private static final String[] TAB_NAMES = {"차단 목록", "허용 목록", "브라우저 규칙", "기본 제공 목록"};
+    private static final int TAB_BLOCK = 0, TAB_ALLOW = 1, TAB_BROWSER = 2, TAB_PACKS = 3, TAB_BUNDLED = 4;
+    private static final String[] TAB_NAMES = {"차단 목록", "허용 목록", "브라우저 규칙", "팩", "기본 제공 목록"};
     private static final int SEARCH_LIMIT = 200;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -96,7 +96,7 @@ public class ListsActivity extends Activity {
             r.setText(TAB_NAMES[i]);
             r.setId(View.generateViewId());
             final int t = i;
-            r.setOnClickListener(v -> showTab(t));
+            r.setOnClickListener(v -> { openPack = null; showTab(t); });   // the 팩 chip always shows the pack list
             tabs.addView(r, Ui.chipParams(this));
             if (i == tab) tabs.check(r.getId());
         }
@@ -107,6 +107,7 @@ public class ListsActivity extends Activity {
         col.addView(tabScroll);
 
         col.addView(buildEditPane(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        col.addView(buildPackPane(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         col.addView(buildBundledPane(), new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         setContentView(col);
         showTab(tab);
@@ -116,7 +117,14 @@ public class ListsActivity extends Activity {
     protected void onResume() {
         super.onResume();
         reloadEntries();   // e.g. after "원본 텍스트로 편집"
+        if (tab == TAB_PACKS) showTab(TAB_PACKS);   // pack names/counts may have changed
         updateCheck();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (tab == TAB_PACKS && openPack != null) { openPack = null; showTab(TAB_PACKS); return; }
+        super.onBackPressed();
     }
 
     @Override
@@ -128,20 +136,36 @@ public class ListsActivity extends Activity {
 
     private void showTab(int t) {
         tab = t;
-        boolean bundled = t == TAB_BUNDLED;
-        editPane.setVisibility(bundled ? View.GONE : View.VISIBLE);
+        if (t != TAB_PACKS) openPack = null;
+        boolean bundled = t == TAB_BUNDLED, packList = t == TAB_PACKS && openPack == null;
+        editPane.setVisibility(bundled || packList ? View.GONE : View.VISIBLE);
+        packPane.setVisibility(packList ? View.VISIBLE : View.GONE);
         bundledPane.setVisibility(bundled ? View.VISIBLE : View.GONE);
+        packHeader.setVisibility(openPack != null ? View.VISIBLE : View.GONE);
         clipboardButton.setVisibility(t == TAB_BLOCK ? View.VISIBLE : View.GONE);
-        pickButton.setVisibility(t == TAB_BROWSER ? View.VISIBLE : View.GONE);
-        guideButton.setVisibility(t == TAB_BROWSER ? View.VISIBLE : View.GONE);
-        if (!bundled) {
+        pickButton.setVisibility(rules() ? View.VISIBLE : View.GONE);
+        guideButton.setVisibility(rules() ? View.VISIBLE : View.GONE);
+        if (packList) reloadPacks();
+        if (openPack != null) {
+            packTitle.setText(Packs.name(this, openPack));
+            packSwitch.setOnCheckedChangeListener(null);
+            packSwitch.setChecked(Packs.isOn(this, openPack));
+            packSwitch.setOnCheckedChangeListener((b, on) -> setPackOn(openPack, on));
+        }
+        if (!bundled && !packList) {
             search.setText("");
             reloadEntries();
         }
     }
 
     private String file() {
+        if (tab == TAB_PACKS && openPack != null) return Packs.file(openPack);
         return tab == TAB_ALLOW ? Lists.ALLOW : tab == TAB_BROWSER ? Lists.BROWSER : Lists.BLOCK;
+    }
+
+    /** Browser rules or a pack (rule lines as written), as opposed to the domain lists. */
+    private boolean rules() {
+        return tab == TAB_BROWSER || (tab == TAB_PACKS && openPack != null);
     }
 
     // ---------------------------------------------------------------- 도메인 확인
@@ -170,11 +194,23 @@ public class ListsActivity extends Activity {
         editPane = new LinearLayout(this);
         editPane.setOrientation(LinearLayout.VERTICAL);
 
+        // shown while one pack is open: back to the list, its name, its on/off switch
+        packHeader = Ui.row(this);
+        packHeader.setPadding(0, 0, 0, Ui.dp(this, 8));
+        packHeader.addView(Ui.round(this, "‹", v -> { openPack = null; showTab(TAB_PACKS); }));
+        packTitle = Ui.heading(this, "");
+        packTitle.setPadding(Ui.dp(this, 10), 0, 0, 0);
+        packHeader.addView(packTitle, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        packSwitch = new Switch(this);
+        packHeader.addView(packSwitch);
+        editPane.addView(packHeader);
+
         LinearLayout bar = Ui.row(this);
         bar.addView(Ui.primary(this, "+ 추가", v -> showAdd()), Ui.weight1());
         clipboardButton = Ui.button(this, "클립보드로 차단", v -> blockFromClipboard());
         bar.addView(clipboardButton, Ui.weight1());
-        pickButton = Ui.button(this, "골라 숨기기", v -> startActivity(new Intent(this, PickerActivity.class)));
+        pickButton = Ui.button(this, "골라 숨기기", v -> startActivity(new Intent(this, PickerActivity.class)
+                .putExtra(PickerActivity.EXTRA_TARGET, file())));   // picked rules go to this list / pack
         bar.addView(pickButton, Ui.weight1());
         guideButton = Ui.round(this, "?", v -> startActivity(new Intent(this, GuideActivity.class)));
         bar.addView(guideButton, Ui.after(this));
@@ -192,7 +228,7 @@ public class ListsActivity extends Activity {
         editPane.addView(count);
 
         list = new ListView(this);
-        adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_activated_1, new ArrayList<>());
+        adapter = new EntryAdapter();
         list.setAdapter(adapter);
         list.setBackground(Ui.rounded(Ui.CARD, Ui.dp(this, 22)));
         list.setClipToOutline(true);
@@ -206,6 +242,9 @@ public class ListsActivity extends Activity {
                 m.setTitle(list.getCheckedItemCount() + "개 선택");
             }
             @Override public boolean onCreateActionMode(ActionMode m, Menu menu) {
+                if (rules()) menu.add(0, 4, 0, "팩으로").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+                menu.add(0, 2, 0, "일시정지").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+                menu.add(0, 3, 0, "재개").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
                 menu.add(0, 1, 0, "삭제").setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
                 return true;
             }
@@ -214,6 +253,18 @@ public class ListsActivity extends Activity {
                 Set<String> picked = new HashSet<>();
                 for (int i = 0; i < raws.size(); i++) if (list.isItemChecked(i)) picked.add(raws.get(i));
                 m.finish();
+                if (item.getItemId() == 4) {
+                    List<String> ordered = new ArrayList<>();   // keep file order
+                    for (String r : raws) if (picked.contains(r)) ordered.add(r);
+                    moveToPack(ordered);
+                    return true;
+                }
+                if (item.getItemId() != 1) {
+                    boolean pause = item.getItemId() == 2;
+                    edit(() -> Lists.setPaused(ListsActivity.this, file(), picked, pause),
+                            picked.size() + "개 " + (pause ? "일시정지" : "재개"));
+                    return true;
+                }
                 confirm(picked.size() + "개를 삭제할까요?", () -> edit(() -> Lists.removeLines(ListsActivity.this, file(), picked),
                         picked.size() + "개 삭제함"));
                 return true;
@@ -226,29 +277,33 @@ public class ListsActivity extends Activity {
 
     /** Re-reads the file: one row per rule line (comments and blank lines hidden). */
     private void reloadEntries() {
-        if (adapter == null || tab == TAB_BUNDLED) return;
-        boolean domains = tab != TAB_BROWSER;
+        if (adapter == null || tab == TAB_BUNDLED || (tab == TAB_PACKS && openPack == null)) return;
+        boolean domains = !rules();
         String q = search.getText().toString().trim().toLowerCase(Locale.ROOT);
         List<String> shown = new ArrayList<>();
         raws.clear();
-        int total = 0;
+        int total = 0, pausedCount = 0;
         String text;
         try { text = Lists.read(this, file()); } catch (IOException e) { text = ""; }
         for (String line : text.split("\n")) {
             String t = line.trim();
-            if (t.isEmpty() || t.startsWith("!") || t.startsWith("[")) continue;
-            if (t.startsWith("#") && (domains || !t.startsWith("##"))) continue;
-            String label = t;
+            boolean paused = Lists.isPaused(t);
+            String e = Lists.unpaused(t);
+            if (e.isEmpty() || (!paused && t.startsWith("!")) || e.startsWith("!") || e.startsWith("[")) continue;
+            if (e.startsWith("#") && (domains || !e.startsWith("##"))) continue;
+            String label = e;
             if (domains) {
-                String d = Lists.parseLine(t);
-                label = d != null ? d : t + "   (인식 안 됨)";
+                String d = Lists.parseLine(e);
+                label = d != null ? d : e + "   (인식 안 됨)";
             }
+            if (paused) pausedCount++;
             total++;
             if (!q.isEmpty() && !label.toLowerCase(Locale.ROOT).contains(q)) continue;
             raws.add(t);
             shown.add(label);
         }
-        count.setText(q.isEmpty() ? total + "개" : shown.size() + "개 / 전체 " + total + "개");
+        count.setText((q.isEmpty() ? total + "개" : shown.size() + "개 / 전체 " + total + "개")
+                + (pausedCount > 0 ? " · 일시정지 " + pausedCount + "개" : ""));
         adapter.setNotifyOnChange(false);
         adapter.clear();
         adapter.addAll(shown);
@@ -257,13 +312,16 @@ public class ListsActivity extends Activity {
 
     /** Tap: 수정 / 삭제 / 복사. */
     private void showEntry(String raw) {
-        boolean domains = tab != TAB_BROWSER;
-        String shown = domains && Lists.parseLine(raw) != null ? Lists.parseLine(raw) : raw;
+        boolean domains = !rules(), paused = Lists.isPaused(raw);
+        String entry = Lists.unpaused(raw);
+        String shown = domains && Lists.parseLine(entry) != null ? Lists.parseLine(entry) : entry;
+        java.util.Set<String> one = java.util.Collections.singleton(raw);
         new AlertDialog.Builder(this)
-                .setTitle(shown)
-                .setItems(new String[]{"수정", "삭제", "복사"}, (d, which) -> {
-                    if (which == 0) showModify(raw, shown);
-                    else if (which == 1) edit(() -> Lists.removeLines(this, file(), java.util.Collections.singleton(raw)), "삭제함");
+                .setTitle((paused ? "⏸ " : "") + shown)
+                .setItems(new String[]{paused ? "재개" : "일시정지", "수정", "삭제", "복사"}, (d, which) -> {
+                    if (which == 0) edit(() -> Lists.setPaused(this, file(), one, !paused), paused ? "재개함" : "일시정지함");
+                    else if (which == 1) showModify(raw, shown);
+                    else if (which == 2) edit(() -> Lists.removeLines(this, file(), one), "삭제함");
                     else copy(shown);
                 })
                 .setNegativeButton("닫기", null)
@@ -279,9 +337,10 @@ public class ListsActivity extends Activity {
                 .setView(pad(e))
                 .setPositiveButton("저장", (d, w) -> {
                     String input = e.getText().toString().trim();
-                    String line = tab == TAB_BROWSER ? input : Domains.normalize(input);
+                    String line = rules() ? input : Domains.normalize(input);
                     if (line == null || line.isEmpty()) { toast("도메인을 알아볼 수 없습니다"); return; }
-                    edit(() -> Lists.replaceLine(this, file(), raw, line), "수정함");
+                    String keep = Lists.isPaused(raw) ? Lists.PAUSED + line : line;
+                    edit(() -> Lists.replaceLine(this, file(), raw, keep), "수정함");
                 })
                 .setNegativeButton("취소", null)
                 .show();
@@ -290,13 +349,13 @@ public class ListsActivity extends Activity {
     /** "+ 추가": many lines at once; for a single block entry, ask how wide to block. */
     private void showAdd() {
         EditText e = new EditText(this);
-        e.setHint(tab == TAB_BROWSER ? "예) example.com##.ad-box\n여러 줄 붙여넣기 가능"
+        e.setHint(rules() ? "예) example.com##.ad-box\n여러 줄 붙여넣기 가능"
                 : "도메인이나 주소, 한 줄에 하나\n(https://ad.example.com/x.jpg → ad.example.com)");
         e.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         e.setMinLines(4);
         e.setGravity(Gravity.TOP | Gravity.START);
         new AlertDialog.Builder(this)
-                .setTitle(TAB_NAMES[tab] + "에 추가")
+                .setTitle((openPack != null ? Packs.name(this, openPack) : TAB_NAMES[tab]) + "에 추가")
                 .setView(pad(e))
                 .setPositiveButton("추가", (d, w) -> addLines(e.getText().toString()))
                 .setNegativeButton("취소", null)
@@ -309,7 +368,7 @@ public class ListsActivity extends Activity {
         Set<String> existing = tab == TAB_ALLOW ? Lists.allowSet() : Lists.blockSet();
         for (String line : text.split("\n")) {
             if (line.trim().isEmpty()) continue;
-            if (tab == TAB_BROWSER) { add.add(line.trim()); continue; }
+            if (rules()) { add.add(line.trim()); continue; }
             String d = Domains.normalize(line);
             if (d == null) bad++;
             else if (existing.contains(d) || add.contains(d)) dup++;
@@ -338,9 +397,31 @@ public class ListsActivity extends Activity {
         PopupMenu m = new PopupMenu(this, anchor);
         m.getMenu().add(0, 1, 0, "원본 텍스트로 편집");
         if (tab == TAB_BLOCK) m.getMenu().add(0, 2, 0, "기본 목록으로 되돌리기");
-        if (tab == TAB_BROWSER) m.getMenu().add(0, 3, 0, "와일드카드(*)로 찾은 도메인");
+        if (rules()) m.getMenu().add(0, 3, 0, "와일드카드(*)로 찾은 도메인");
+        if (openPack != null) {
+            m.getMenu().add(0, 5, 0, "팩 이름 바꾸기");
+            m.getMenu().add(0, 6, 0, "팩 공유하기 (텍스트)");
+            m.getMenu().add(0, 7, 0, "팩 삭제");
+        }
         m.setOnMenuItemClickListener(item -> {
-            if (item.getItemId() == 3) {
+            String id = openPack;
+            if (item.getItemId() == 5) {
+                askName("팩 이름 바꾸기", Packs.name(this, id), name -> {
+                    edit(() -> Packs.rename(this, id, name), "이름을 바꿨어요");
+                    packTitle.setText(Packs.name(this, id));
+                });
+            } else if (item.getItemId() == 6) {
+                try {
+                    startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain")
+                            .putExtra(Intent.EXTRA_TEXT, Lists.read(this, Packs.file(id))), "팩 공유하기"));
+                } catch (IOException e) { toast("읽기 실패: " + e.getMessage()); }
+            } else if (item.getItemId() == 7) {
+                confirm("'" + Packs.name(this, id) + "' 팩을 지울까요? 안의 규칙도 같이 지워져요.", () -> {
+                    try { Packs.delete(this, id); toast("팩을 지웠어요"); } catch (IOException e) { toast("실패: " + e.getMessage()); }
+                    openPack = null;
+                    showTab(TAB_PACKS);
+                });
+            } else if (item.getItemId() == 3) {
                 showWildcardSeen();
             } else if (item.getItemId() == 1) {
                 startActivity(new Intent(this, EditActivity.class).putExtra(EditActivity.EXTRA_FILE, file()));
@@ -351,6 +432,139 @@ public class ListsActivity extends Activity {
             return true;
         });
         m.show();
+    }
+
+    // ---------------------------------------------------------------- packs
+
+    private LinearLayout packPane, packHeader;
+    private TextView packTitle;
+    private Switch packSwitch;
+    private String openPack;   // id of the pack shown in the edit pane, or null for the pack list
+    private final List<Packs.Pack> packs = new ArrayList<>();
+    private android.widget.BaseAdapter packAdapter;
+
+    private View buildPackPane() {
+        packPane = new LinearLayout(this);
+        packPane.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout bar = Ui.row(this);
+        bar.addView(Ui.primary(this, "+ 새 팩", v -> askName("새 팩", "", name -> {
+            try {
+                String id = Packs.create(this, name);
+                openPack = id;
+                showTab(TAB_PACKS);
+            } catch (IOException e) { toast("실패: " + e.getMessage()); }
+        })), Ui.weight1());
+        bar.addView(Ui.round(this, "?", v -> startActivity(new Intent(this, GuideActivity.class))), Ui.after(this));
+        packPane.addView(bar);
+        packPane.addView(Ui.text(this, "팩 = 이름 붙은 브라우저 규칙 묶음이에요. 스위치로 통째로 켜고 끄고, "
+                + "누르면 안의 규칙을 보고 하나씩 일시정지하거나 고칠 수 있어요. 브라우저 규칙에서 여러 개를 길게 눌러 골라 '팩으로' 옮길 수도 있어요.", 13));
+
+        ListView lv = new ListView(this);
+        packAdapter = new android.widget.BaseAdapter() {
+            @Override public int getCount() { return packs.size(); }
+            @Override public Object getItem(int i) { return packs.get(i); }
+            @Override public long getItemId(int i) { return i; }
+            @Override public View getView(int i, View v, android.view.ViewGroup parent) { return packRow(packs.get(i), (LinearLayout) v); }
+        };
+        lv.setAdapter(packAdapter);
+        lv.setBackground(Ui.rounded(Ui.CARD, Ui.dp(this, 22)));
+        lv.setClipToOutline(true);
+        lv.setDivider(new android.graphics.drawable.ColorDrawable(0xFFEDF1EF));
+        lv.setDividerHeight(1);
+        lv.setOnItemClickListener((p, v, pos, id) -> { openPack = packs.get(pos).id; showTab(TAB_PACKS); });
+        packPane.addView(lv, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        return packPane;
+    }
+
+    /** Name, "규칙 N개 · 일시정지 M개", and the pack's switch at the right end. */
+    private View packRow(Packs.Pack p, LinearLayout row) {
+        if (row == null) {
+            row = Ui.row(this);
+            int pad = Ui.dp(this, 16);
+            row.setPadding(pad, Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12));
+            LinearLayout texts = new LinearLayout(this);
+            texts.setOrientation(LinearLayout.VERTICAL);
+            TextView name = Ui.text(this, "", 16);
+            name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            name.setPadding(0, 0, 0, 0);
+            texts.addView(name);
+            TextView sub = Ui.text(this, "", 13);
+            sub.setPadding(0, Ui.dp(this, 2), 0, 0);
+            texts.addView(sub);
+            row.addView(texts, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            Switch sw = new Switch(this);
+            sw.setFocusable(false);   // row taps still open the pack
+            row.addView(sw);
+        }
+        LinearLayout texts = (LinearLayout) row.getChildAt(0);
+        ((TextView) texts.getChildAt(0)).setText(p.name);
+        ((TextView) texts.getChildAt(1)).setText("규칙 " + p.rules + "개" + (p.paused > 0 ? " · 일시정지 " + p.paused + "개" : "")
+                + (p.on ? " · 켜짐" : " · 꺼짐"));
+        Switch sw = (Switch) row.getChildAt(1);
+        sw.setOnCheckedChangeListener(null);
+        sw.setChecked(p.on);
+        sw.setOnCheckedChangeListener((b, on) -> setPackOn(p.id, on));
+        return row;
+    }
+
+    private void reloadPacks() {
+        packs.clear();
+        packs.addAll(Packs.all(this));
+        packAdapter.notifyDataSetChanged();
+    }
+
+    private void setPackOn(String id, boolean on) {
+        try {
+            Packs.setOn(this, id, on);
+            toast(Packs.name(this, id) + (on ? " 켬" : " 끔") + " · 삼성 인터넷에서 새로고침하세요");
+        } catch (IOException e) { toast("실패: " + e.getMessage()); }
+        if (openPack == null && tab == TAB_PACKS) reloadPacks();
+    }
+
+    /** Moves the chosen rule lines (pause marks kept) to a pack, or from a pack back to 브라우저 규칙. */
+    private void moveToPack(List<String> lines) {
+        List<String> targets = new ArrayList<>(), labels = new ArrayList<>();
+        if (openPack != null) { targets.add(Lists.BROWSER); labels.add("브라우저 규칙"); }
+        for (Packs.Pack p : Packs.all(this)) {
+            if (p.id.equals(openPack)) continue;
+            targets.add(Packs.file(p.id));
+            labels.add(p.name + (p.on ? "" : "  (꺼짐)"));
+        }
+        targets.add(null);
+        labels.add("+ 새 팩 만들기");
+        String from = file();
+        new AlertDialog.Builder(this)
+                .setTitle(lines.size() + "개를 어디로 옮길까요?")
+                .setItems(labels.toArray(new String[0]), (d, which) -> {
+                    String to = targets.get(which);
+                    if (to != null) { move(lines, from, to); return; }
+                    askName("새 팩", "", name -> {
+                        try { move(lines, from, Packs.file(Packs.create(this, name))); }
+                        catch (IOException e) { toast("실패: " + e.getMessage()); }
+                    });
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void move(List<String> lines, String from, String to) {
+        edit(() -> {
+            Lists.appendAll(this, to, lines);
+            Lists.removeLines(this, from, new HashSet<>(lines));
+        }, lines.size() + "개 옮김");
+    }
+
+    private void askName(String title, String current, java.util.function.Consumer<String> then) {
+        EditText e = Ui.field(this, new EditText(this));
+        e.setText(current);
+        e.setHint("팩 이름 (예: 유튜브 집중 모드)");
+        e.setSingleLine(true);
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(pad(e))
+                .setPositiveButton("확인", (d, w) -> then.accept(e.getText().toString()))
+                .setNegativeButton("취소", null)
+                .show();
     }
 
     /** Domains that matched an "aa*.com##..." rule so far (they are what Samsung Internet gets for the '*'). */
@@ -368,6 +582,41 @@ public class ListsActivity extends Activity {
                             () -> { Wildcards.clear(this); toast("지웠습니다"); }));
         }
         b.show();
+    }
+
+    /** List row: the entry, and at the right end a ❚❚ / ▶ button that pauses or resumes just that entry. */
+    private final class EntryAdapter extends ArrayAdapter<String> {
+        EntryAdapter() { super(ListsActivity.this, 0, new ArrayList<>()); }
+
+        @Override
+        public View getView(int pos, View v, android.view.ViewGroup parent) {
+            LinearLayout row = (LinearLayout) v;
+            if (row == null) {
+                row = Ui.row(ListsActivity.this);
+                row.setPadding(Ui.dp(ListsActivity.this, 16), Ui.dp(ListsActivity.this, 6), Ui.dp(ListsActivity.this, 8), Ui.dp(ListsActivity.this, 6));
+                android.graphics.drawable.StateListDrawable bg = new android.graphics.drawable.StateListDrawable();
+                bg.addState(new int[]{android.R.attr.state_activated}, new android.graphics.drawable.ColorDrawable(Ui.TONAL));
+                row.setBackground(bg);   // selected while long-press selecting
+                TextView label = Ui.text(ListsActivity.this, "", 16);
+                row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                Button toggle = Ui.round(ListsActivity.this, "", null);
+                toggle.setFocusable(false);   // keep row taps going to the list
+                row.addView(toggle, Ui.after(ListsActivity.this));
+            }
+            String raw = raws.get(pos);
+            boolean paused = Lists.isPaused(raw);
+            TextView label = (TextView) row.getChildAt(0);
+            label.setText(getItem(pos));
+            label.setTextColor(paused ? 0xFFA0A7A3 : Ui.TEXT);
+            label.setPaintFlags(paused ? label.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+                    : label.getPaintFlags() & ~android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
+            Button toggle = (Button) row.getChildAt(1);
+            toggle.setText(paused ? "▶" : "❚❚");
+            toggle.setContentDescription(paused ? "재개" : "일시정지");
+            toggle.setOnClickListener(b -> edit(() -> Lists.setPaused(ListsActivity.this, file(),
+                    java.util.Collections.singleton(raw), !paused), paused ? "재개함" : "일시정지함"));
+            return row;
+        }
     }
 
     // ---------------------------------------------------------------- bundled lists

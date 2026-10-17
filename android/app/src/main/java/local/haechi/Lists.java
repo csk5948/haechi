@@ -42,9 +42,25 @@ final class Lists {
         if (!a.exists()) writeFile(a, "");
         File w = new File(c.getFilesDir(), BROWSER);
         if (!w.exists()) writeFile(w, readAsset(c, BROWSER_ASSET));
+        else upgradeTestRule(w);
         block = parse(readFile(b));
         allow = parse(readFile(a));
-        Wildcards.update(c, readFile(w));   // "aa*.com##sel" sites to watch for in DNS queries
+        Packs.ensure(c);
+        Wildcards.update(c, readFile(w) + "\n" + Packs.enabledText(c));   // "aa*.com##sel" sites to watch for in DNS queries
+    }
+
+    /**
+     * example.com no longer has an h1, so the old test rule "example.com##h1" showed nothing either way.
+     * Swap it (and its note) for "example.com##p", which visibly empties the page when hiding works.
+     */
+    private static void upgradeTestRule(File w) throws IOException {
+        String text = readFile(w);
+        String nl = "\n" + text + "\n";
+        if (!nl.contains("\nexample.com##h1\n")) return;
+        String r = nl.replace("\nexample.com##h1\n", "\nexample.com##p\n");
+        text = r.substring(1, r.length() - 1)
+                .replace("example.com 에서 제목이 사라지면 성공", "example.com 에서 글이 모두 사라지고 아이콘만 남으면 성공");
+        writeFile(w, text);
     }
 
     /** Overwrites block.txt with the bundled default list. allow.txt is left alone. */
@@ -203,6 +219,31 @@ final class Lists {
             else out.append(line).append('\n');
         }
         if (!done) out.append(newLine).append('\n');   // the line vanished meanwhile: just add
+        save(c, fileName, out.toString());
+    }
+
+    /**
+     * A paused entry stays in the file behind this marker. Every reader already skips '!' lines
+     * (DNS lists, Samsung Internet, wildcards, the picker), so a paused entry is simply not used.
+     */
+    static final String PAUSED = "!⏸ ";
+
+    static boolean isPaused(String trimmed) { return trimmed.startsWith(PAUSED); }
+
+    /** The entry itself, without the pause marker. */
+    static String unpaused(String trimmed) {
+        return isPaused(trimmed) ? trimmed.substring(PAUSED.length()).trim() : trimmed;
+    }
+
+    /** Pauses or resumes the lines whose trimmed text is in {@code lines}; everything else stays. */
+    static synchronized void setPaused(Context c, String fileName, Set<String> lines, boolean pause) throws IOException {
+        StringBuilder out = new StringBuilder();
+        for (String line : read(c, fileName).split("\n")) {
+            String t = line.trim();
+            if (lines.contains(t) && pause && !isPaused(t)) out.append(PAUSED).append(t).append('\n');
+            else if (lines.contains(t) && !pause && isPaused(t)) out.append(unpaused(t)).append('\n');
+            else out.append(line).append('\n');
+        }
         save(c, fileName, out.toString());
     }
 

@@ -52,6 +52,10 @@ import java.util.regex.Pattern;
  */
 public class PickerActivity extends Activity {
     static final String EXTRA_URL = "url";
+    /** Lists file the picked rules go to (browser.txt or a pack); the user can change it on screen. */
+    static final String EXTRA_TARGET = "target";
+    private String target = Lists.BROWSER;
+    private Button targetButton;
     private static final Pattern URL = Pattern.compile("https?://\\S+");
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -217,6 +221,15 @@ public class PickerActivity extends Activity {
         pickPane.addView(siteRow);
         pickPane.addView(Ui.text(this, "* = 글자·숫자 아무거나 (aa*.com → aa1.com, aa2.com …). "
                 + "새 주소는 해치가 DNS로 처음 볼 때 규칙에 더해집니다.", 12));
+
+        // where "규칙 추가" saves: 브라우저 규칙 or a pack
+        String want = getIntent().getStringExtra(EXTRA_TARGET);
+        target = Packs.isPackFile(want) ? want : Lists.BROWSER;
+        targetButton = Ui.button(this, "", v -> chooseTarget(v));
+        LinearLayout.LayoutParams tp = Ui.gap(this, 4);
+        tp.bottomMargin = Ui.dp(this, 6);
+        pickPane.addView(targetButton, tp);
+        showTarget();
 
         LinearLayout bottom = Ui.row(this);
         previewButton = Ui.button(this, "", v -> setPreview(!previewing));
@@ -403,6 +416,45 @@ public class PickerActivity extends Activity {
         return h.startsWith("www.") ? h.substring(4) : h;
     }
 
+    private String targetName() {
+        return Packs.isPackFile(target) ? "팩 '" + Packs.name(this, Packs.idOf(target)) + "'" : "브라우저 규칙";
+    }
+
+    private void showTarget() {
+        targetButton.setText("저장할 곳: " + targetName() + "  ▾");
+    }
+
+    /** 브라우저 규칙, each pack, or a new pack. */
+    private void chooseTarget(View anchor) {
+        android.widget.PopupMenu m = new android.widget.PopupMenu(this, anchor);
+        List<String> files = new ArrayList<>();
+        files.add(Lists.BROWSER);
+        m.getMenu().add(0, 0, 0, "브라우저 규칙");
+        for (Packs.Pack p : Packs.all(this)) {
+            files.add(Packs.file(p.id));
+            m.getMenu().add(0, files.size() - 1, 0, "팩: " + p.name + (p.on ? "" : "  (꺼짐)"));
+        }
+        m.getMenu().add(0, -1, 0, "+ 새 팩 만들기");
+        m.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() >= 0) { target = files.get(item.getItemId()); showTarget(); return true; }
+            EditText e = Ui.field(this, new EditText(this));
+            e.setHint("팩 이름 (예: 유튜브 집중 모드)");
+            e.setSingleLine(true);
+            LinearLayout box = new LinearLayout(this);
+            int p = Ui.dp(this, 20);
+            box.setPadding(p, Ui.dp(this, 8), p, 0);
+            box.addView(e, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            new android.app.AlertDialog.Builder(this).setTitle("새 팩").setView(box)
+                    .setPositiveButton("만들기", (d, w) -> {
+                        try { target = Packs.file(Packs.create(this, e.getText().toString())); showTarget(); }
+                        catch (IOException ex) { toast("실패: " + ex.getMessage()); }
+                    })
+                    .setNegativeButton("취소", null).show();
+            return true;
+        });
+        m.show();
+    }
+
     private void addRule() {
         String s = sel();
         if (s.isEmpty() || matches < 1) { toast("페이지에서 일치하는 요소가 없습니다"); return; }
@@ -413,16 +465,18 @@ public class PickerActivity extends Activity {
             toast("주의: 지금 페이지(" + host() + ")는 " + domain + " 에 맞지 않습니다");
         String rule = domain + "##" + s;
         try {
-            for (String line : Lists.read(this, Lists.BROWSER).split("\n")) {
-                if (line.trim().equals(rule)) { toast("이미 있는 규칙입니다"); return; }
+            if (!Lists.BROWSER.equals(target) && !new java.io.File(getFilesDir(), target).exists()) target = Lists.BROWSER;
+            for (String line : Lists.read(this, target).split("\n")) {
+                if (Lists.unpaused(line.trim()).equals(rule)) { toast("이미 있는 규칙입니다"); return; }
             }
-            Lists.appendAll(this, Lists.BROWSER, Collections.singletonList(rule));   // also notifies Samsung Internet
+            Lists.appendAll(this, target, Collections.singletonList(rule));   // also notifies Samsung Internet
             Wildcards.seen(this, host());   // wildcard rule: this page's domain is its first match
         } catch (IOException e) {
             toast("실패: " + e.getMessage());
             return;
         }
-        toast("추가함 · " + rule);
+        boolean off = Packs.isPackFile(target) && !Packs.isOn(this, Packs.idOf(target));
+        toast(targetName() + "에 추가함" + (off ? " · 이 팩은 꺼져 있어 아직 적용 안 됨" : "") + " · " + rule);
         setPicking(false);
         clearPick();
         inject();   // re-apply: the new rule now hides it here too
@@ -436,7 +490,7 @@ public class PickerActivity extends Activity {
     static List<String> rulesFor(Context c, String host) {
         List<String> out = new ArrayList<>();
         String text;
-        try { text = Lists.read(c, Lists.BROWSER); } catch (IOException e) { return out; }
+        try { text = Lists.read(c, Lists.BROWSER) + "\n" + Packs.enabledText(c); } catch (IOException e) { return out; }
         for (String line : text.split("\n")) {
             String t = line.trim();
             if (t.startsWith("!")) continue;

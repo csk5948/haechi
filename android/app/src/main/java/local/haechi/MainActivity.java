@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
         samsung.addView(Ui.heading(this, "삼성 인터넷 광고 차단"));
         samsung.addView(Ui.text(this, "1. 삼성 인터넷 주소창에 internet://contentblock 입력 → 개발자 모드 켜기\n"
                 + "2. 삼성 인터넷 설정 › 광고 차단기 에서 '해치' 켜기\n"
-                + "3. example.com 에서 제목이 사라지면 요소 숨김 동작", 14));
+                + "3. example.com 에서 글이 사라지고 아이콘만 남으면 요소 숨김 동작", 14));
         samsung.addView(Ui.button(this, "광고 차단기 설정 열기", v -> openSamsungSettings()), Ui.gap(this, 6));
         samsungDiag = Ui.text(this, "", 12);
         samsung.addView(samsungDiag);
