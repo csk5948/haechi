@@ -1,0 +1,14 @@
+! 팩: 뉴스 댓글 숨기기
+! 네이버 뉴스(n.news.naver.com)와 다음 뉴스(v.daum.net) 기사에서 댓글 영역과 위쪽 댓글 수 버튼을 숨김.
+! 2026-10-18 에뮬레이터 크롬에서 두 곳의 기사를 열어 확인하고 만듦.
+! 맨 아래 '많이 본 뉴스' 줄은 꺼진 채로 들어 있어요. 원하면 켜세요.
+
+! 네이버 뉴스: 기사 아래 댓글 영역, 제목 옆 댓글 수
+n.news.naver.com##div.cbox_wrapper
+n.news.naver.com##a.media_end_head_cmtcount_button
+! 다음 뉴스: 기사 아래 댓글 영역, 위쪽 댓글 수
+v.daum.net##div.comment_view
+v.daum.net##span.btn_engagement:has([class*="comment-count-label"])
+
+! 네이버 뉴스: 기사 아래 '많이 본 뉴스'·추천 기사 피드 (기본 꺼짐)
+!⏸ n.news.naver.com##div.feed_wrapper

@@ -1,0 +1,12 @@
+! 팩: 쿠팡: 광고 상품·앱 유도 빼기
+! 쿠팡 모바일 웹 검색 결과에서 'AD' 상품, 위쪽 광고 배너, '쿠팡앱으로 보기' 팝업을 숨김.
+! 2026-10-18 에뮬레이터 크롬에서 '노트북' 검색 결과(광고 상품 10개 / 61개)를 열어 확인하고 만듦.
+
+! 검색 결과 사이사이 'AD' 상품 (광고 정보 버튼이 있는 상품, 광고 상품 링크)
+coupang.com###product-list > li:has(button[aria-label="Ad information"])
+coupang.com##li:has(a[href*="sourceType=srp_product_ads"])
+! 검색어 위 광고 배너
+coupang.com###srpKeywordTopBanner
+! '쿠팡앱으로 보기' 전체 화면 팝업, 아래에서 올라오는 앱 유도 창
+coupang.com###wa-banners
+coupang.com##div.bottom-sheet-nudge-container
