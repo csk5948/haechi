@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
@@ -155,14 +156,29 @@ public class BlockerService extends VpnService {
             } catch (PackageManager.NameNotFoundException ignored) {}   // not installed
         }
 
-        // Optional: hand browsers a local proxy that splits the TLS ClientHello (API 29+).
+        // Optional: hand browsers a local proxy (API 29+) that splits the TLS ClientHello and/or filters HTTPS.
         splitStatus = "";
-        if (Settings.splitHello(this)) {
+        httpsStatus = "";
+        boolean wantSplit = Settings.splitHello(this), wantHttps = Settings.httpsFilter(this);
+        if (wantSplit || wantHttps) {
             if (Build.VERSION.SDK_INT < 29) {
-                splitStatus = "Android 10 이상에서만 지원됩니다";
+                splitStatus = httpsStatus = "Android 10 이상에서만 지원됩니다";
             } else {
                 SplitProxy.mode = Settings.splitMode(this);
-                SplitProxy p = new SplitProxy(this::protect);
+                SplitProxy p = new SplitProxy(this::protect, wantSplit);
+                if (wantHttps) {
+                    if (!CertAuthority.exists(this)) httpsStatus = "인증서를 아직 만들지 않았습니다";
+                    else if (!CertAuthority.isInstalled(this)) httpsStatus = "인증서가 폰에 설치되지 않았습니다 (필터링 안 함)";
+                    else {
+                        try {
+                            p.setFilter(this, CertAuthority.get(this));
+                            httpsStatus = "필터링 중";
+                        } catch (IOException | java.security.GeneralSecurityException e) {
+                            httpsStatus = "인증서를 읽지 못했습니다: " + e.getMessage();
+                        }
+                    }
+                }
+                HttpsFilter.resetStats();
                 int port = p.start();
                 if (port > 0) {
                     b.setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", port));
@@ -170,6 +186,7 @@ public class BlockerService extends VpnService {
                     splitStatus = "VPN에 프록시 지정됨: 127.0.0.1:" + port;
                 } else {
                     splitStatus = "중계기를 시작하지 못했습니다 (프록시 지정 안 됨)";
+                    if (wantHttps) httpsStatus = splitStatus;
                 }
             }
         }
@@ -229,6 +246,18 @@ public class BlockerService extends VpnService {
         return true;
     }
 
+    /**
+     * Settings read only when the VPN starts (proxy, HTTPS filtering, apps kept out) apply after a quick
+     * off → on. Does nothing when the filter is off.
+     */
+    static void restart(Context c) {
+        if (!running) return;
+        Context app = c.getApplicationContext();
+        app.startService(new Intent(app, BlockerService.class).setAction(ACTION_STOP));
+        new Handler(Looper.getMainLooper()).postDelayed(() -> app.startForegroundService(
+                new Intent(app, BlockerService.class).setAction(ACTION_START)), 800);
+    }
+
     /** Idempotent: safe to call from STOP, onRevoke and onDestroy. */
     private synchronized void shutdown() {
         boolean wasRunning = running;
@@ -252,7 +281,7 @@ public class BlockerService extends VpnService {
         stopSelf();
     }
 
-    static volatile String splitStatus = "";
+    static volatile String splitStatus = "", httpsStatus = "";
     private SplitProxy splitProxy;
 
     private void stopSplitProxy() {

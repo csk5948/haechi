@@ -26,6 +26,7 @@ final class SamsungBlocker {
 
     /** Tells Samsung Internet to fetch our filters again (exact broadcast from the guide). */
     static void notifyUpdate(Context c) {
+        AdRules.invalidate();   // HTTPS filtering applies the same rules: rebuild them on the next request
         Uri data = Uri.parse("package:" + c.getPackageName());
         try {
             c.sendBroadcast(new Intent(ACTION_UPDATE).setData(data));        // as in the guide
@@ -48,6 +49,7 @@ final class SamsungBlocker {
             String t = line.trim();
             if (t.isEmpty() || t.startsWith("!")) continue;
             if (t.startsWith("#") && !t.startsWith("##") && !t.startsWith("#?#")) continue;   // '#' notes are not ABP
+            if (t.contains("$replace") || t.contains(",replace")) continue;   // $replace (HTTPS filtering only): Samsung Internet doesn't know it
             t = Wildcards.expandLine(c, t);   // "aa*.com##x" -> "aa1.com,aa2.com##x" (null: none seen yet)
             if (t != null) out.append(t).append('\n');
         }

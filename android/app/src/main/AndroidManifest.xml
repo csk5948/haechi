@@ -109,6 +109,16 @@
             android:exported="false" />
 
         <activity
+            android:name=".BodyActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <activity
+            android:name=".RequestLogActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden" />
+
+        <activity
             android:name=".LogActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize|stateHidden" />

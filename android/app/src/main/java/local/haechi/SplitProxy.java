@@ -30,6 +30,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * The site name is looked up with the normal system resolver, i.e. through this app's own DNS
  * filter, so blocked domains (answered 0.0.0.0 / ::) are refused here with 403 as well.
+ *
+ * With HTTPS filtering on, a browser's CONNECT is first offered to {@link HttpsFilter}; what it does not
+ * take is relayed as above (split only if SNI 쪼개기 is on too).
  */
 final class SplitProxy {
     interface Protector { boolean protect(Socket s); }
@@ -47,13 +50,24 @@ final class SplitProxy {
     private static final int MAX_HEAD = 16384;
 
     private final Protector protector;
+    private final boolean split;
+    private volatile HttpsFilter filter;
     private final Set<Socket> open = ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor pool = new ThreadPoolExecutor(0, 512, 30, TimeUnit.SECONDS, new SynchronousQueue<>());
     private volatile ServerSocket server;
 
-    SplitProxy(Protector protector) {
+    SplitProxy(Protector protector, boolean split) {
         this.protector = protector;
+        this.split = split;
     }
+
+    /** Turns on HTTPS filtering for new connections. */
+    void setFilter(android.content.Context c, CertAuthority ca) {
+        filter = new HttpsFilter(c, ca, pool, this::open);
+    }
+
+    /** Port of the running relay (0 = not running); the picker uses it to check its own proxy. */
+    static volatile int activePort;
 
     /** Starts listening on a free loopback port and returns it, or -1 on failure. */
     int start() {
@@ -63,13 +77,15 @@ final class SplitProxy {
             Thread t = new Thread(() -> acceptLoop(s), "split-proxy");
             t.setDaemon(true);
             t.start();
-            return s.getLocalPort();
+            activePort = s.getLocalPort();
+            return activePort;
         } catch (IOException e) {
             return -1;
         }
     }
 
     void stop() {
+        activePort = 0;
         ServerSocket s = server;
         server = null;
         if (s != null) try { s.close(); } catch (IOException ignored) {}
@@ -112,11 +128,13 @@ final class SplitProxy {
             if (rl[0].equalsIgnoreCase("CONNECT")) {
                 String[] hp = hostPort(rl[1], 443);
                 if (hp == null) { reply(cout, "400 Bad Request"); return; }
+                HttpsFilter f = filter;
+                if (f != null && f.handle(client, in, cout, hp[0], Integer.parseInt(hp[1])) == HttpsFilter.HANDLED) return;
                 up = open(hp[0], Integer.parseInt(hp[1]), cout);
                 if (up == null) return;
                 cout.write("HTTP/1.1 200 Connection Established\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1));
                 cout.flush();
-                split = firstFlight(in, up.getOutputStream());
+                if (this.split) split = firstFlight(in, up.getOutputStream());
             } else {
                 String target = rl[1];
                 if (!target.regionMatches(true, 0, "http://", 0, 7)) { reply(cout, "400 Bad Request"); return; }

@@ -30,6 +30,15 @@ final class Settings {
         prefs(c).edit().putBoolean(KEY_SPLIT, on).apply();
     }
 
+    /** HTTPS filtering with the phone's own CA (HttpsFilter); read when the VPN starts. Off by default. */
+    static boolean httpsFilter(Context c) {
+        return prefs(c).getBoolean("https_filter", false);
+    }
+
+    static void setHttpsFilter(Context c, boolean on) {
+        prefs(c).edit().putBoolean("https_filter", on).apply();
+    }
+
     /** Packages kept out of the VPN; read when the VPN starts. Default: Samsung Pay and friends. */
     static java.util.Set<String> excludedApps(Context c) {
         return new java.util.TreeSet<>(prefs(c).getStringSet(KEY_EXCLUDED,

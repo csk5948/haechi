@@ -149,9 +149,7 @@ public class ExcludeActivity extends Activity {
         super.onPause();
         if (!changed || !BlockerService.running) return;
         changed = false;
-        startService(new Intent(this, BlockerService.class).setAction(BlockerService.ACTION_STOP));
-        new Handler(Looper.getMainLooper()).postDelayed(() -> startForegroundService(
-                new Intent(getApplicationContext(), BlockerService.class).setAction(BlockerService.ACTION_START)), 800);
+        BlockerService.restart(this);
         Toast.makeText(this, "필터를 다시 시작해 적용했어요", Toast.LENGTH_SHORT).show();
     }
 

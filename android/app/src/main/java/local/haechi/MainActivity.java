@@ -33,7 +33,7 @@ public class MainActivity extends Activity {
     private Button toggle;
     private LinearLayout hero;
     private ImageView art;
-    private TextView status, counts, dohFail, samsungDiag, splitStat;
+    private TextView status, counts, dohFail, samsungDiag, splitStat, httpsStat;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable ticker = new Runnable() {
         @Override public void run() { refresh(); handler.postDelayed(this, 1000); }
@@ -75,6 +75,7 @@ public class MainActivity extends Activity {
         LinearLayout menu = Ui.card(this);
         menu.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
         menu.addView(navRow("기록 보기", "어떤 앱이 어떤 도메인에 접속했나", LogActivity.class));
+        menu.addView(navRow("요청 기록 (HTTPS)", "HTTPS 필터링이 푼 브라우저 요청 전체 주소 · 눌러서 막기", RequestLogActivity.class));
         menu.addView(navRow("목록 관리", "차단 · 허용 · 브라우저 규칙 · 기본 제공 목록", ListsActivity.class));
         menu.addView(navRow("광고 요소 골라 숨기기", "앱 안 브라우저에서 광고를 눌러 삼성 인터넷 규칙 만들기", PickerActivity.class));
         menu.addView(navRow("해치에서 뺄 앱", "결제·은행 앱처럼 해치를 거치면 안 되는 앱", ExcludeActivity.class));
@@ -127,8 +128,7 @@ public class MainActivity extends Activity {
         split.setChecked(Settings.splitHello(this));
         split.setOnCheckedChangeListener((v, on) -> {
             Settings.setSplitHello(this, on);
-            if (BlockerService.running)
-                Toast.makeText(this, "끄기 → 켜기를 한 번 해야 적용됩니다", Toast.LENGTH_LONG).show();
+            applySoon();
         });
         splitCard.addView(split);
         splitCard.addView(Ui.text(this, "크롬·삼성 인터넷의 HTTPS를 앱 안 중계기(127.0.0.1)로 보내, 사이트 이름이 든 첫 TLS 패킷을 "
@@ -151,6 +151,39 @@ public class MainActivity extends Activity {
         splitStat = Ui.text(this, "", 13);
         splitCard.addView(splitStat);
         col.addView(splitCard, Ui.cardParams(this));
+
+        // ---- HTTPS filtering with the phone's own CA (read when the VPN starts) ----
+        LinearLayout httpsCard = Ui.card(this);
+        Switch https = Ui.toggle(this);
+        https.setText("HTTPS 필터링");
+        https.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        https.setTypeface(Typeface.DEFAULT_BOLD);
+        https.setTextColor(Ui.TEXT);
+        https.setEnabled(Build.VERSION.SDK_INT >= 29);
+        https.setChecked(Settings.httpsFilter(this));
+        https.setOnCheckedChangeListener((v, on) -> {
+            Settings.setHttpsFilter(this, on);
+            applySoon();
+        });
+        httpsCard.addView(https);
+        httpsCard.addView(Ui.text(this, "폰에서 만든 CA 인증서로 크롬·삼성 인터넷의 HTTPS를 앱 안에서 풀어, 브라우저 규칙·팩·YousList의 "
+                + "주소 규칙(||광고서버/경로^)으로 광고 요청을 막고 요소 숨김 규칙을 페이지에 넣습니다. "
+                + "DNS로는 못 막던 같은 도메인의 광고 경로도 막을 수 있어요. 다른 앱의 연결과 허용 목록 사이트는 풀지 않습니다. Android 10 이상.", 13));
+        httpsCard.addView(Ui.text(this, "1. 인증서 만들기 → 다운로드 폴더에 haechi-ca.crt 저장\n"
+                + "2. 설정 › 보안 › (기타 보안 설정 ›) 인증서 설치 › CA 인증서 → haechi-ca.crt 선택\n"
+                + "3. 위 스위치 켜기 (켜져 있는 해치는 알아서 다시 시작해 적용)", 14), Ui.gap(this, 6));
+        LinearLayout certRow = Ui.row(this);
+        certRow.addView(Ui.button(this, "인증서 만들기·저장", v -> exportCa()), Ui.weight1());
+        certRow.addView(Ui.button(this, "설치 화면", v -> openCertInstall()), Ui.weight1());
+        httpsCard.addView(certRow, Ui.gap(this, 6));
+        httpsCard.addView(Ui.button(this, "인증서 새로 만들기", v -> confirmNewCa()));
+        httpsCard.addView(Ui.text(this, "주의: 인증서의 열쇠는 폰의 보안 저장소(Android Keystore) 안에서 만들어져 해치도 꺼낼 수 없고, "
+                + "해치를 지우면 함께 사라집니다(그때는 인증서를 새로 만들어 다시 설치). 설치한 CA는 "
+                + "폰이 믿는 인증서가 되므로, 필터링을 그만 쓰면 설정 › 보안 › 사용자 인증서에서 지우세요. "
+                + "은행 등 문제가 있는 사이트는 허용 목록에 넣으면 풀지 않습니다.", 12));
+        httpsStat = Ui.text(this, "", 13);
+        httpsCard.addView(httpsStat);
+        col.addView(httpsCard, Ui.cardParams(this));
 
         LinearLayout guide = Ui.card(this);
         guide.addView(Ui.heading(this, "알아 두기"));
@@ -191,7 +224,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override protected void onResume() { super.onResume(); handler.post(ticker); }
+    @Override protected void onResume() { super.onResume(); handler.post(ticker); checkCa(); }
     @Override protected void onPause() { super.onPause(); handler.removeCallbacks(ticker); }
 
     private void refresh() {
@@ -212,6 +245,7 @@ public class MainActivity extends Activity {
                 + (Bundled.isReady() ? String.format(java.util.Locale.KOREA, "%,d개", Bundled.blockCount()) : Bundled.isLoading() ? "불러오는 중" : "꺼짐 상태에선 안 읽음"));
         splitStat.setText(on && Settings.splitHello(this)
                 ? BlockerService.splitStatus + "\n중계기 연결 " + SplitProxy.connections.get() + " · 쪼갠 TLS 연결 " + SplitProxy.splits.get() + " · 무응답 " + SplitProxy.splitFails.get() : "");
+        refreshHttps(on);
         int fails = BlockerService.dohFailures.get();
         String st = BlockerService.dohStatus;
         dohFail.setText((st.isEmpty() ? "" : "암호화 DNS: " + st + "\n")
@@ -224,6 +258,121 @@ public class MainActivity extends Activity {
     }
 
     private Boolean shownOn;
+
+    /** The proxy switches are read when the VPN starts: restart a running filter, once, shortly after the last flip. */
+    private final Runnable restartFilter = () -> {
+        if (!BlockerService.running) return;
+        BlockerService.restart(this);
+        Toast.makeText(this, "해치를 다시 시작해 적용했어요", Toast.LENGTH_SHORT).show();
+    };
+
+    private void applySoon() {
+        handler.removeCallbacks(restartFilter);
+        handler.postDelayed(restartFilter, 700);
+    }
+
+    // ---------------------------------------------------------------- HTTPS filtering
+
+    private volatile String caState = "";
+
+    /** Whether the CA exists / is installed; the system CA store is read off the main thread, on resume. */
+    private void checkCa() {
+        new Thread(() -> {
+            String s = !CertAuthority.exists(this) ? "인증서: 아직 안 만듦"
+                    : CertAuthority.isInstalled(this) ? "인증서: 폰에 설치됨 ✓" : "인증서: 만들었지만 폰에 설치 안 됨";
+            if (CertAuthority.legacyKey(this)) s += "\n⚠ 열쇠가 예전 방식(파일)으로 저장돼 있어요. '인증서 새로 만들기'로 보안 저장소에 다시 만드세요";
+            caState = s;
+            handler.post(this::refresh);
+        }, "ca-check").start();
+    }
+
+    private void refreshHttps(boolean on) {
+        StringBuilder sb = new StringBuilder(caState);
+        if (on && Settings.httpsFilter(this)) {
+            sb.append("\n").append(BlockerService.httpsStatus);
+            sb.append(String.format(java.util.Locale.KOREA, "\n푼 연결 %,d · 막은 요청 %,d · 숨김 넣은 페이지 %,d · 내용 고친 응답 %,d",
+                    HttpsFilter.sessions.get(), HttpsFilter.blockedRequests.get(), HttpsFilter.styledPages.get(),
+                    HttpsFilter.rewrittenResponses.get()));
+            sb.append(String.format(java.util.Locale.KOREA, "\n그냥 통과: 다른 앱 %,d · 인증서 거부로 넘긴 사이트 %,d (거부 %,d회)",
+                    HttpsFilter.passedApps.get(), HttpsFilter.learnedBypass.size(), HttpsFilter.handshakeFails.get()));
+        }
+        String s = sb.toString();
+        if (!s.contentEquals(httpsStat.getText())) httpsStat.setText(s);
+    }
+
+    /** Makes the CA (first time) and saves its certificate to Downloads for the system installer. */
+    private void exportCa() {
+        Toast.makeText(this, "인증서 만드는 중…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String msg;
+            try {
+                CertAuthority ca = CertAuthority.get(this);
+                byte[] pem = CertAuthority.pem(ca.caCert()).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                msg = "다운로드 폴더에 저장함: " + saveToDownloads(pem) + "\n이제 '설치 화면'에서 CA 인증서로 설치하세요";
+            } catch (Exception e) {
+                msg = "실패: " + e.getMessage();
+            }
+            String m = msg;
+            handler.post(() -> {
+                Toast.makeText(this, m, Toast.LENGTH_LONG).show();
+                checkCa();
+            });
+        }, "ca-export").start();
+    }
+
+    private String saveToDownloads(byte[] data) throws IOException {
+        if (Build.VERSION.SDK_INT < 29) throw new IOException("Android 10 이상이 필요합니다");
+        android.content.ContentValues v = new android.content.ContentValues();
+        v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "haechi-ca.crt");
+        v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/x-x509-ca-cert");
+        android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+        if (uri == null) throw new IOException("다운로드 폴더에 쓸 수 없습니다");
+        try (java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
+            if (out == null) throw new IOException("다운로드 폴더에 쓸 수 없습니다");
+            out.write(data);
+        }
+        String name = "haechi-ca.crt";
+        try (android.database.Cursor c = getContentResolver().query(uri,
+                new String[]{android.provider.MediaStore.MediaColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) name = c.getString(0);   // "haechi-ca (1).crt" if one was there
+        }
+        return name;
+    }
+
+    /**
+     * Android 10 can still install a CA straight from the app; from Android 11 on it must be picked in Settings
+     * (보안 › 인증서 설치 › CA 인증서), so that screen is opened instead.
+     */
+    private void openCertInstall() {
+        java.security.cert.X509Certificate cert = CertAuthority.certificate(this);
+        if (cert == null) {
+            Toast.makeText(this, "먼저 '인증서 만들기·저장'을 누르세요", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            if (Build.VERSION.SDK_INT < 30) {
+                Intent i = android.security.KeyChain.createInstallIntent();
+                i.putExtra(android.security.KeyChain.EXTRA_CERTIFICATE, cert.getEncoded());
+                i.putExtra(android.security.KeyChain.EXTRA_NAME, "Haechi Local CA");
+                startActivity(i);
+                return;
+            }
+            Toast.makeText(this, "보안 › (기타 보안 설정 ›) 인증서 설치 › CA 인증서 → 다운로드의 haechi-ca.crt", Toast.LENGTH_LONG).show();
+            startActivity(new Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS));
+        } catch (Exception e) {
+            Toast.makeText(this, "설정을 열 수 없습니다. 설정 앱에서 '인증서 설치'를 검색하세요", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void confirmNewCa() {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("인증서 새로 만들기")
+                .setMessage("지금 인증서를 버리고 새로 만듭니다. 폰에 설치한 예전 인증서는 설정 › 보안 › 사용자 인증서에서 지우고, "
+                        + "새 인증서를 다시 설치해야 합니다. 해치를 끄고 켜야 적용됩니다.")
+                .setPositiveButton("새로 만들기", (d, w) -> { CertAuthority.reset(this); exportCa(); })
+                .setNegativeButton("취소", null)
+                .show();
+    }
 
     /** One tappable row of the menu card: title, one-line description, chevron. */
     private View navRow(String title, String sub, Class<?> screen) {

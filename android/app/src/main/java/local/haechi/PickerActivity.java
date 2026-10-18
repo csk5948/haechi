@@ -106,6 +106,9 @@ public class PickerActivity extends Activity {
         col.addView(bar);
 
         // ---- page ----
+        useSplitProxy();   // before the WebView exists: it reads the proxy when it starts
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0)
+            WebView.setWebContentsDebuggingEnabled(true);   // debug builds only: inspect the page from a PC
         web = new WebView(this);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -122,6 +125,16 @@ public class PickerActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
                 String scheme = r.getUrl().getScheme();
                 return !"http".equals(scheme) && !"https".equals(scheme);   // no intent://, market://, ...
+            }
+
+            /**
+             * With HTTPS filtering the relay answers with a certificate from the phone's own CA. This app only trusts
+             * system CAs, so accept exactly the certificates our CA signed; every other error still stops the page.
+             */
+            @Override
+            public void onReceivedSslError(WebView v, android.webkit.SslErrorHandler h, android.net.http.SslError e) {
+                if (signedByUs(e)) h.proceed();
+                else h.cancel();
             }
 
             @Override
@@ -168,6 +181,21 @@ public class PickerActivity extends Activity {
         top.addView(Ui.round(this, "?", v -> startActivity(new Intent(this, GuideActivity.class))), Ui.after(this));
         panel.addView(top);
 
+        // what the next tap picks; switching never drops what is already picked
+        RadioGroup action = new RadioGroup(this);
+        action.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton hideIt = Ui.chip(this, new RadioButton(this)), keepIt = Ui.chip(this, new RadioButton(this));
+        hideIt.setText("숨기기 (영역)");
+        keepIt.setText("남기기");
+        hideIt.setId(View.generateViewId());
+        keepIt.setId(View.generateViewId());
+        hideIt.setOnClickListener(v -> setKeep(false));
+        keepIt.setOnClickListener(v -> setKeep(true));
+        action.addView(hideIt, Ui.chipParams(this));
+        action.addView(keepIt, Ui.chipParams(this));
+        action.check(hideIt.getId());
+        panel.addView(action);
+
         info = Ui.text(this, "", 13);
         panel.addView(info);
 
@@ -190,7 +218,7 @@ public class PickerActivity extends Activity {
         selector = Ui.field(this, new EditText(this));
         selector.setTypeface(Typeface.MONOSPACE);
         selector.setTextSize(13);
-        selector.setMaxLines(3);
+        selector.setMaxLines(4);   // "이것만 남기기" can make many lines; the box scrolls
         selector.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         selector.addTextChangedListener(new TextWatcher() {
@@ -294,7 +322,61 @@ public class PickerActivity extends Activity {
     protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         web.destroy();
+        if (boundToVpn) {   // don't leave the whole process tied to the VPN network (it may go away)
+            getSystemService(android.net.ConnectivityManager.class).bindProcessToNetwork(null);
+            boundToVpn = false;
+        }
         super.onDestroy();
+    }
+
+    private boolean boundToVpn;
+
+    /**
+     * SNI 쪼개기 for the picker's own browser. The VPN hands its proxy (127.0.0.1:relay) to apps through
+     * the VPN network; some phones keep the VPN app's own traffic off that network, so the WebView here
+     * would go direct. Binding this process to our VPN network makes getDefaultProxy() — which the WebView
+     * reads — return the relay. Our own outgoing sockets are unaffected (protect() / explicit networks).
+     */
+    private void useSplitProxy() {
+        int port = SplitProxy.activePort;
+        if (!BlockerService.running || port <= 0) return;
+        android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
+        for (android.net.Network n : cm.getAllNetworks()) {
+            android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(n);
+            android.net.LinkProperties lp = cm.getLinkProperties(n);
+            if (caps == null || lp == null || !caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) continue;
+            android.net.ProxyInfo proxy = lp.getHttpProxy();
+            if (proxy != null && proxy.getPort() == port) {
+                boundToVpn = cm.bindProcessToNetwork(n);
+                return;
+            }
+        }
+    }
+
+    private boolean signedByUs(android.net.http.SslError e) {
+        if (android.os.Build.VERSION.SDK_INT < 29 || e.getPrimaryError() != android.net.http.SslError.SSL_UNTRUSTED
+                || e.hasError(android.net.http.SslError.SSL_IDMISMATCH)) return false;
+        java.security.cert.X509Certificate ca = CertAuthority.certificate(this);
+        java.security.cert.X509Certificate leaf = e.getCertificate().getX509Certificate();
+        if (ca == null || leaf == null) return false;
+        try {
+            leaf.checkValidity();
+            leaf.verify(ca.getPublicKey());
+            return true;
+        } catch (java.security.GeneralSecurityException ex) {
+            return false;
+        }
+    }
+
+    /** What the picker's browser will use, for the info line: relay or direct. */
+    private String splitState() {
+        int port = SplitProxy.activePort;
+        if (port <= 0) return null;   // relay off: nothing to say
+        boolean split = Settings.splitHello(this), https = Settings.httpsFilter(this);
+        String what = split && https ? "SNI 쪼개기·HTTPS 필터링" : https ? "HTTPS 필터링" : "SNI 쪼개기";
+        android.net.ProxyInfo p = getSystemService(android.net.ConnectivityManager.class).getDefaultProxy();
+        return p != null && p.getPort() == port ? what + " 적용 중"
+                : what + " 적용 안 됨 · 이 화면을 닫고 다시 열어 보세요";
     }
 
     /** Shared text from another app, or EXTRA_URL from our own screens. */
@@ -331,9 +413,12 @@ public class PickerActivity extends Activity {
         Wildcards.seen(this, host());   // a mirror opened here counts too (even with the filter off)
         List<String> rules = rulesFor(this, host());
         web.evaluateJavascript(script + ";__haechi.setRules(" + new JSONArray(rules) + ");"
-                + "__haechi.mode(" + byClassNames + ");" + (picking ? "__haechi.start();" : ""), null);
-        if (!rules.isEmpty() && matches == 0 && !picking)
-            info.setText("이 사이트에 이미 있는 숨김 규칙 " + rules.size() + "개 적용 중");
+                + "__haechi.mode(" + byClassNames + ");__haechi.keep(" + keepMode + ");" + (picking ? "__haechi.start();" : ""), null);
+        if (matches == 0 && !picking) {
+            String split = splitState();
+            String r = rules.isEmpty() ? null : "이 사이트에 이미 있는 숨김 규칙 " + rules.size() + "개 적용 중";
+            info.setText(r == null ? (split == null ? "" : split) : split == null ? r : r + " · " + split);
+        }
     }
 
     private void js(String code) {
@@ -349,7 +434,22 @@ public class PickerActivity extends Activity {
         picking = on;
         pickButton.setText(on ? "■ 고르기 끝" : "● 요소 고르기");
         js(on ? "__haechi.start()" : "__haechi.stop()");
-        if (on && matches == 0) info.setText("광고를 누르세요. 화면은 그대로 스크롤됩니다.");
+        if (on && matches == 0) info.setText(hint());
+    }
+
+    private boolean keepMode;
+
+    /** Only changes what the next tap picks; the area and the marks already picked stay. */
+    private void setKeep(boolean keep) {
+        keepMode = keep;
+        js("__haechi.keep(" + keep + ")");
+        if (matches == 0) info.setText(hint());
+    }
+
+    private String hint() {
+        return keepMode
+                ? "남기기: 남길 것을 누르세요(초록, 여러 개, 다시 누르면 취소). ▲▼는 마지막에 누른 것의 크기."
+                : "숨기기: 숨길 영역을 누르세요(▲▼로 크기 조절). 영역 안에 남길 것이 있으면 그것만 빼고 숨겨요.";
     }
 
     private void setPreview(boolean on) {
@@ -390,7 +490,7 @@ public class PickerActivity extends Activity {
                 settingText = true;
                 selector.setText(sel);
                 settingText = false;
-                info.setText(what + (up > 0 ? " (" + up + "단계 위)" : "") + " · 일치 " + count + "개");
+                info.setText(what);   // the script writes the whole line (size, matches, kept, hidden)
                 if (!siteFilled) { site.setText(ruleDomain()); siteFilled = true; }   // keep the user's edit
                 pickPane.setVisibility(View.VISIBLE);
                 if (previewing) setPreview(true);
@@ -400,8 +500,16 @@ public class PickerActivity extends Activity {
 
     // ---------------------------------------------------------------- rule
 
+    /** The selector box: one selector per line ("이것만 남기기" makes several). */
+    private List<String> lines() {
+        List<String> out = new ArrayList<>();
+        for (String l : selector.getText().toString().split("\n")) if (!l.trim().isEmpty()) out.add(l.trim());
+        return out;
+    }
+
+    /** All lines as one CSS selector list, for counting and previewing on the page. */
     private String sel() {
-        return selector.getText().toString().replace('\n', ' ').trim();
+        return String.join(", ", lines());
     }
 
     private String host() {
@@ -456,27 +564,32 @@ public class PickerActivity extends Activity {
     }
 
     private void addRule() {
-        String s = sel();
-        if (s.isEmpty() || matches < 1) { toast("페이지에서 일치하는 요소가 없습니다"); return; }
-        if (s.contains("{") || s.contains("}")) { toast("선택자에 { } 는 쓸 수 없습니다"); return; }
+        List<String> sels = lines();
+        if (sels.isEmpty() || matches < 1) { toast("페이지에서 일치하는 요소가 없습니다"); return; }
+        for (String one : sels) if (one.contains("{") || one.contains("}")) { toast("선택자에 { } 는 쓸 수 없습니다"); return; }
         String domain = site.getText().toString().trim().toLowerCase(Locale.ROOT).replace(" ", "");
         if (!domain.matches("[a-z0-9.*,~_-]*")) { toast("사이트에 쓸 수 없는 글자가 있습니다"); return; }
         if (Wildcards.isPattern(domain) && rulesFor(domain + "##x", host()) == null)
             toast("주의: 지금 페이지(" + host() + ")는 " + domain + " 에 맞지 않습니다");
-        String rule = domain + "##" + s;
+        List<String> rules = new ArrayList<>();
         try {
             if (!Lists.BROWSER.equals(target) && !new java.io.File(getFilesDir(), target).exists()) target = Lists.BROWSER;
-            for (String line : Lists.read(this, target).split("\n")) {
-                if (Lists.unpaused(line.trim()).equals(rule)) { toast("이미 있는 규칙입니다"); return; }
+            java.util.Set<String> have = new java.util.HashSet<>();
+            for (String line : Lists.read(this, target).split("\n")) have.add(Lists.unpaused(line.trim()));
+            for (String one : sels) {
+                String r = domain + "##" + one;
+                if (!have.contains(r) && !rules.contains(r)) rules.add(r);
             }
-            Lists.appendAll(this, target, Collections.singletonList(rule));   // also notifies Samsung Internet
+            if (rules.isEmpty()) { toast("이미 있는 규칙입니다"); return; }
+            Lists.appendAll(this, target, rules);   // also notifies Samsung Internet
             Wildcards.seen(this, host());   // wildcard rule: this page's domain is its first match
         } catch (IOException e) {
             toast("실패: " + e.getMessage());
             return;
         }
         boolean off = Packs.isPackFile(target) && !Packs.isOn(this, Packs.idOf(target));
-        toast(targetName() + "에 추가함" + (off ? " · 이 팩은 꺼져 있어 아직 적용 안 됨" : "") + " · " + rule);
+        toast(targetName() + "에 " + (rules.size() == 1 ? "추가함 · " + rules.get(0) : "규칙 " + rules.size() + "줄 추가함")
+                + (off ? " · 이 팩은 꺼져 있어 아직 적용 안 됨" : ""));
         setPicking(false);
         clearPick();
         inject();   // re-apply: the new rule now hides it here too

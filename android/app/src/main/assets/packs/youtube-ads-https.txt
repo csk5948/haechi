@@ -1,0 +1,10 @@
+! 팩: 유튜브 광고 일정 지우기 (HTTPS 필터링)
+! 영상 정보 응답(JSON)과 영상 페이지(HTML) 안에 섞여 오는 광고 일정(adPlacements · playerAds · adSlots)의 이름을 바꿔,
+! 플레이어가 광고가 있는 줄 모르게 합니다. 주소로는 영상과 광고를 나눌 수 없어 응답 내용을 고치는 $replace 규칙을 씁니다.
+! HTTPS 필터링을 켜고 인증서를 설치해야 동작합니다(크롬 등 브라우저의 m.youtube.com). 유튜브 앱에는 안 되고,
+! 삼성 인터넷 광고 차단기에는 전달되지 않습니다. 유튜브가 광고를 영상 안에 붙여 보내는 방식(서버 삽입)은 못 막습니다.
+
+! 영상 정보·다음 영상·피드 (youtubei API의 JSON 응답)
+||youtube.com/youtubei/v1/$replace=/"(adPlacements|playerAds|adSlots)"/"no_ads"/g
+! 영상 페이지를 처음 열 때 HTML 안에 같이 오는 영상 정보 (ytInitialPlayerResponse)
+||youtube.com/watch$replace=/"(adPlacements|playerAds|adSlots)"/"no_ads"/g

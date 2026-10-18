@@ -13,3 +13,7 @@ _emu/
 _untrusted/
 uploads/
 dist/
+
+# release signing (never commit; back these up)
+*.jks
+keystore.properties
