@@ -146,7 +146,9 @@ final class ListUpdater {
     private static boolean fetch(Context c, Source s) throws IOException {
         SharedPreferences p = prefs(c);
         boolean have = file(c, s.id) != null;
-        HttpURLConnection con = (HttpURLConnection) new URL(s.url).openConnection();
+        // NO_PROXY: with SNI 쪼개기 / HTTPS filtering on, the VPN's proxy is our own relay, which would open this
+        // connection with the phone's CA — and this app (rightly) trusts only the system's certificates.
+        HttpURLConnection con = (HttpURLConnection) new URL(s.url).openConnection(java.net.Proxy.NO_PROXY);
         con.setConnectTimeout(15000);
         con.setReadTimeout(60000);
         con.setRequestProperty("User-Agent", "Haechi");
